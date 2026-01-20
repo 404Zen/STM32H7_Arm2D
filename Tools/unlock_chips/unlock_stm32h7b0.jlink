@@ -1,0 +1,28 @@
+device STM32H7B0VB
+si SWD
+speed 1000
+
+power on
+
+// if not connected
+    connectunderreset
+// endif
+
+h                   // 停止CPU
+sleep 100           // 等待100毫秒确保系统稳定
+erase               // 全片擦除，清除导致锁死的错误配置
+sleep 500           // 等待擦除完成
+
+unlock Kinetis      // 此命令对STM32系列通常有效，可将RDP级别降为0[6,7](@ref)
+
+// 5. 复位并启动芯片
+r                   // 复位芯片
+g                   // 启动运行
+echo.
+echo ===============================================================================
+echo Unlock and mass erase completed successfully!
+echo Please reprogram your chip with the correct power configuration.
+echo ===============================================================================
+echo.
+
+// connect
