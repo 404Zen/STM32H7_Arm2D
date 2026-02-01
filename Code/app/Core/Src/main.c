@@ -234,6 +234,7 @@ void Error_Handler(void)
   while (1)
   {
     __BKPT(0);
+		while (1);
   }
   /* USER CODE END Error_Handler_Debug */
 }

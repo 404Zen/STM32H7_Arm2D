@@ -34,8 +34,15 @@ enable_language(C ASM)
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
 
+
+add_compile_definitions(
+    VECT_TAB_SRAM
+    USER_VECT_TAB_ADDRESS
+)
+
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
+
 
 # Link directories setup
 target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE

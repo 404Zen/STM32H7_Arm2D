@@ -75,12 +75,16 @@ _Min_Stack_Size = 0x1000; /* required amount of stack */
 SECTIONS
 {
   /* The startup code goes first into FLASH */
+    /* used by the startup to initialize vector table */
+  _sivtor = LOADADDR(.isr_vector);
   .isr_vector :
   {
     . = ALIGN(4);
+    _svtor = .;
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
-  } >EXT_FLASH
+    _evtor = .; 
+  } >RAM AT> EXT_FLASH
 
   /* The program code and other data goes into FLASH */
   .text :
@@ -167,7 +171,7 @@ SECTIONS
     *(.RamFunc*)       /* .RamFunc* sections */
 
     . = ALIGN(4);
-  } >RAM AT> EXT_FLASH
+  } >DTCMRAM AT> EXT_FLASH
 
  /* Initialized TLS data section */
   .tdata : ALIGN(4)
