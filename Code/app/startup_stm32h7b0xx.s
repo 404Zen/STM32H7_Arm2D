@@ -65,6 +65,23 @@ Reset_Handler:
 /* Call the clock system initialization function.*/
   bl  SystemInit
   
+/* Copy the vector segment from flash to SRAM */
+  ldr r0, =_svtor
+  ldr r1, =_evtor
+  ldr r2, =_sivtor
+  movs r3, #0 
+  b LoopCopyVtorInit
+
+CopyVtorInit:
+  ldr r4, [r2, r3]
+  str r4, [r0, r3]
+  adds r3, r3, #4
+    
+LoopCopyVtorInit:
+  adds r4, r0, r3
+  cmp r4, r1
+  bcc CopyVtorInit
+  
 /* Copy the data segment initializers from flash to SRAM */  
   ldr r0, =_sdata
   ldr r1, =_edata
