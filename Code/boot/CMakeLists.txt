@@ -46,7 +46,6 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     User/ext_flash.c
-    User/WB_Command.c
 )
 
 # Add include paths

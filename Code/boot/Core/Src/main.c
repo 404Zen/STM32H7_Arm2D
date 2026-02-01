@@ -19,10 +19,9 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "octospi.h"
+#include "stm32h7b0xx.h"
+#include "usart.h"
 #include "gpio.h"
-#include "stm32h7xx_hal.h"
-#include "stm32h7xx_hal_gpio.h"
-#include <stdint.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -31,12 +30,21 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+typedef void (*pFunction)(void);
+pFunction JumpToApplication;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define BOOT_DEBUG_ENABLE               1
 
+#if BOOT_DEBUG_ENABLE
+    #define BOOT_DEBUG(...)              usart1_printf(__VA_ARGS__)
+#else
+    #define BOOT_DEBUG(...)              (void)0
+#endif
+
+#define EXT_FLASH_START_ADDRESS           0x90000000
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -86,7 +94,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -99,21 +106,47 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_OCTOSPI1_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  BOOT_DEBUG("STM32H7B0 boot\r\n");
+  BOOT_DEBUG("Compiled at %s %s\r\n", __DATE__, __TIME__);
+
   ext_flash_id = OSPI_Get_FlashID();
   if(ext_flash_id != 0)
   {
+    BOOT_DEBUG("External Flash ID: 0x%08lX\r\n", ext_flash_id);
     ext_flash_mapped_ok = OSPI_ExtFlash_Mapped();
-    // map ok = 0
+    /* map ok = 0 */
     if(ext_flash_mapped_ok == 0)
     {
+      BOOT_DEBUG("External Flash mapped to 0x90000000\r\n");
       blink_time = 100;
+    }
+    else 
+    {
+      BOOT_DEBUG("External Flash mapping failed\r\n");
     }
   }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+#if 1
+  /* Cache disable*/
+  // SCB_DisableDCache();
+  // SCB_DisableICache();
+
+  /* Get applicatuon jump address */
+  JumpToApplication = (pFunction) (*((uint32_t *)(EXT_FLASH_START_ADDRESS+4)));
+  
+  BOOT_DEBUG("Set MSP to 0x%08lX\r\n", *(uint32_t *)EXT_FLASH_START_ADDRESS);
+  BOOT_DEBUG("Jump to application at 0x%08lX\r\n", (uint32_t)JumpToApplication);
+  __set_MSP(*(uint32_t *)EXT_FLASH_START_ADDRESS);
+  
+
+  JumpToApplication();
+#endif
+  // OSPI_W25Qxx_Test();
   start_tick = HAL_GetTick();
   while (1)
   {
