@@ -312,6 +312,7 @@ void SystemInit (void)
 #endif /* USER_VECT_TAB_ADDRESS */
 
 #endif /*DUAL_CORE && CORE_CM4*/
+  SCB->VTOR = 0x90000000;	// External Flash Vector Table address
 }
 
 /**

@@ -8,16 +8,14 @@ power on
     connectunderreset
 // endif
 
-h                   // 停止CPU
-sleep 100           // 等待100毫秒确保系统稳定
-erase               // 全片擦除，清除导致锁死的错误配置
-sleep 500           // 等待擦除完成
+h                   // halt CPU
+sleep 100           // wait CPU stop
+erase               // erase full chip, clear the wrong code
+sleep 500           // wait for erase
 
-unlock Kinetis      // 此命令对STM32系列通常有效，可将RDP级别降为0[6,7](@ref)
-
-// 5. 复位并启动芯片
-r                   // 复位芯片
-g                   // 启动运行
+// reset and run
+r                   // reset
+g                   // run
 echo.
 echo ===============================================================================
 echo Unlock and mass erase completed successfully!
