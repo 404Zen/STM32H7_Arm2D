@@ -13,10 +13,16 @@
             "cwd": "${workspaceFolder}",
             "preBuild": "${command:st-stm32-ide-debug-launch.build}",
             "runEntry": "main",
+            // "runEntry": "Reset_Handler",
             "imagesAndSymbols": [
                 {
                     "imageFileName": "${command:st-stm32-ide-debug-launch.get-projects-binary-from-context1}"
-                }
+                },
+                {
+                    // application
+                    "imageFileName": "${workspaceFolder}/../app/build/Debug/app.elf",
+                    "symbolLoadAddress": "0x90000000"
+                },
             ],
             "serverJLinkScriptFile": ""
         }

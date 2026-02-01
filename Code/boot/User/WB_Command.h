@@ -129,6 +129,9 @@
 #define WB_Flash_Status1_BUSY_Pos (0)
 #define WB_Flash_Status1_BUSY_Msk (0x1ul << WB_Flash_Status1_BUSY_Pos) // S0
 
+#define WB_Flash_Status1_WEL_Pos  (1)
+#define WB_Flash_Status1_WEL_Msk  (0x1ul << WB_Flash_Status1_WEL_Pos)   // S1
+
 // Status Register-2
 #define WB_Flash_Status2_QE_Pos (1)
 #define WB_Flash_Status2_QE_Msk (0x1ul << WB_Flash_Status2_QE_Pos) // S9

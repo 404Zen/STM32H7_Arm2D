@@ -37,7 +37,14 @@ void MX_OCTOSPI1_Init(void)
   OSPIM_CfgTypeDef sOspiManagerCfg = {0};
 
   /* USER CODE BEGIN OCTOSPI1_Init 1 */
-
+  uint32_t i;
+  char *p;
+	
+  p = (char *)&hospi1;
+  for (i = 0; i < sizeof(hospi1); i++)
+  {
+      *p++ = 0;
+  }	
   /* USER CODE END OCTOSPI1_Init 1 */
   hospi1.Instance = OCTOSPI1;
   hospi1.Init.FifoThreshold = 8;
