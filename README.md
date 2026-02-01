@@ -48,6 +48,57 @@
 
 
 
+
+
+### COPY VECTOR TABLE TO SRAM
+
+```ld
+  /* The startup code goes first into FLASH */
+    /* used by the startup to initialize vector table */
+  _sivtor = LOADADDR(.isr_vector);
+  .isr_vector :
+  {
+    . = ALIGN(4);
+    _svtor = .;
+    KEEP(*(.isr_vector)) /* Startup code */
+    . = ALIGN(4);
+    _evtor = .; 
+  } >RAM AT> EXT_FLASH
+```
+
+
+
+
+
+```assembly
+/* Copy the vector segment from flash to SRAM */
+  ldr r0, =_svtor
+  ldr r1, =_evtor
+  ldr r2, =_sivtor
+  movs r3, #0 
+  b LoopCopyVtorInit
+
+CopyVtorInit:
+  ldr r4, [r2, r3]
+  str r4, [r0, r3]
+  adds r3, r3, #4
+    
+LoopCopyVtorInit:
+  adds r4, r0, r3
+  cmp r4, r1
+  bcc CopyVtorInit
+```
+
+
+
+
+
+
+
+
+
+
+
 # TODOS
 
 - [x] External flash loader

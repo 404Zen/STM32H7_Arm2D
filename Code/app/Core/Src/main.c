@@ -18,8 +18,11 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "stm32h7xx_hal.h"
+#include "stm32h7xx_hal_gpio.h"
 #include "usart.h"
 #include "gpio.h"
+#include <stdint.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -73,11 +76,16 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+  volatile uint32_t start_tick = 0;
+  volatile uint32_t now_tick = 0;
 
+  // SCB_CleanInvalidateDCache();
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/
   MPU_Config();
+  // SCB_EnableICache();		// Ê¹ÄÜICache
+	// SCB_EnableDCache();		// Ê¹ÄÜDCache
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -105,10 +113,16 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  start_tick = HAL_GetTick();
   while (1)
   {
     /* USER CODE END WHILE */
-
+    now_tick = HAL_GetTick();
+    if(now_tick- start_tick >= 500)
+    {
+      start_tick = now_tick;
+      HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
+    }
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -219,6 +233,7 @@ void Error_Handler(void)
   __disable_irq();
   while (1)
   {
+    __BKPT(0);
   }
   /* USER CODE END Error_Handler_Debug */
 }

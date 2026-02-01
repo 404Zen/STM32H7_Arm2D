@@ -167,7 +167,7 @@ SECTIONS
     *(.RamFunc*)       /* .RamFunc* sections */
 
     . = ALIGN(4);
-  } >DTCMRAM AT> EXT_FLASH
+  } >RAM AT> EXT_FLASH
 
  /* Initialized TLS data section */
   .tdata : ALIGN(4)

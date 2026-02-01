@@ -87,6 +87,8 @@ int main(void)
 
   /* MPU Configuration--------------------------------------------------------*/
   MPU_Config();
+  // SCB_EnableICache();		// Ê¹ÄÜICache
+  // SCB_EnableDCache();		// Ê¹ÄÜDCache
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -135,6 +137,12 @@ int main(void)
   /* Cache disable*/
   // SCB_DisableDCache();
   // SCB_DisableICache();
+  HAL_MPU_Disable();
+
+  /* Disable SysTick */
+  SysTick->CTRL = 0;
+	SysTick->LOAD = 0;
+	SysTick->VAL = 0;
 
   /* Get applicatuon jump address */
   JumpToApplication = (pFunction) (*((uint32_t *)(EXT_FLASH_START_ADDRESS+4)));
@@ -145,6 +153,8 @@ int main(void)
   
 
   JumpToApplication();
+
+  
 #endif
   // OSPI_W25Qxx_Test();
   start_tick = HAL_GetTick();
