@@ -18,11 +18,9 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "stm32h7xx_hal.h"
-#include "stm32h7xx_hal_gpio.h"
+#include "dma.h"
 #include "usart.h"
 #include "gpio.h"
-#include <stdint.h>
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -77,15 +75,12 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
   volatile uint32_t start_tick = 0;
-  volatile uint32_t now_tick = 0;
 
   // SCB_CleanInvalidateDCache();
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/
   MPU_Config();
-  // SCB_EnableICache();		// Ê¹ÄÜICache
-	// SCB_EnableDCache();		// Ê¹ÄÜDCache
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -105,10 +100,11 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  APP_DEBUG("Application Start...\r\n");
-  APP_DEBUG("Compiled at %s %s\r\n", __DATE__, __TIME__);
+  APP_DEBUG("\r\n\r\n\r\nApplication Start...\r\n");
+  // APP_DEBUG("Compiled at %s %s\r\n", __DATE__, __TIME__);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -117,13 +113,13 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    now_tick = HAL_GetTick();
-    if(now_tick- start_tick >= 500)
-    {
-      start_tick = now_tick;
-      HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
-    }
+
     /* USER CODE BEGIN 3 */
+    if(HAL_GetTick() - start_tick >= 500)
+    { 
+      HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
+      start_tick = HAL_GetTick();
+    }
   }
   /* USER CODE END 3 */
 }

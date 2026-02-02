@@ -81,8 +81,8 @@ LoopCopyVtorInit:
   adds r4, r0, r3
   cmp r4, r1
   bcc CopyVtorInit
-  
-/* Copy the data segment initializers from flash to SRAM */  
+
+/* Copy the data segment initializers from flash to SRAM (THIS IS DTCM.)*/  
   ldr r0, =_sdata
   ldr r1, =_edata
   ldr r2, =_sidata
@@ -98,6 +98,24 @@ LoopCopyDataInit:
   adds r4, r0, r3
   cmp r4, r1
   bcc CopyDataInit
+
+/* Copy the data segment initializers from flash to REAL SRAM Section */  
+  ldr r0, =_ssram_data
+  ldr r1, =_esram_data
+  ldr r2, =_sisramdata
+  movs r3, #0
+  b LoopCopySRAMDataInit
+
+CopySRAMDataInit:
+  ldr r4, [r2, r3]
+  str r4, [r0, r3]
+  adds r3, r3, #4
+    
+LoopCopySRAMDataInit:
+  adds r4, r0, r3
+  cmp r4, r1
+  bcc CopySRAMDataInit
+
 /* Zero fill the bss segment. */
   ldr r2, =_sbss
   ldr r4, =_ebss
@@ -111,6 +129,20 @@ FillZerobss:
 LoopFillZerobss:
   cmp r2, r4
   bcc FillZerobss
+
+/* Zero fill the sram_bss segment. ST make a shit. */
+  ldr r2, =_ssram_bss
+  ldr r4, =_esram_bss
+  movs r3, #0
+  b LoopFillZerosrambss
+
+FillZerosrambss:
+  str  r3, [r2]
+  adds r2, r2, #4
+
+LoopFillZerosrambss:
+  cmp r2, r4
+  bcc FillZerosrambss
   
 /* Call static constructors */
     bl __libc_init_array
