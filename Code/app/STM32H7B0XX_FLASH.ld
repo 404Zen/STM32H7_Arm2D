@@ -235,6 +235,32 @@ SECTIONS
   PROVIDE( __bss_start = __tbss_start );
   PROVIDE( __bss_size = __bss_end - __bss_start );
 
+  _sisramdata = LOADADDR(.sram_data);
+  .sram_data :
+  {
+    . = ALIGN(4);
+    _ssram_data = .;
+
+    *(.sram_data)
+    *(.sram_data*)
+    . = ALIGN(4);
+    _esram_data = .;
+
+  } >RAM AT> EXT_FLASH
+
+
+  .sram_bss (NOLOAD) : ALIGN(4)
+  {
+    _ssram_bss = .;
+
+    *(.sram_bss)
+    . = ALIGN(4);
+    *(.sram_dma_bss)
+    . = ALIGN(4);
+
+    _esram_bss = .;
+  } >RAM
+
   /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack (NOLOAD) :
   {

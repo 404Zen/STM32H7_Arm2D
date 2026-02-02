@@ -87,8 +87,6 @@ int main(void)
 
   /* MPU Configuration--------------------------------------------------------*/
   MPU_Config();
-  // SCB_EnableICache();		// Ê¹ÄÜICache
-  // SCB_EnableDCache();		// Ê¹ÄÜDCache
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -135,8 +133,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
 #if 1
   /* Cache disable*/
-  // SCB_DisableDCache();
-  // SCB_DisableICache();
   HAL_MPU_Disable();
 
   /* Disable SysTick */
