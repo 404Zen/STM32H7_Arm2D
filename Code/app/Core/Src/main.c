@@ -24,7 +24,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "async_uart.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -51,7 +51,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+extern async_uart_instance_t uart1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -103,7 +103,12 @@ int main(void)
   MX_DMA_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  APP_DEBUG("\r\n\r\n\r\nApplication Start...\r\n");
+
+  async_uart_init();
+  
+  async_usart_printf(&uart1, "\r\n\r\n\r\nApplication Start...\r\n");
+  async_usart_printf(&uart1, "Compiled at %s %s\r\n", __DATE__, __TIME__);
+  // APP_DEBUG("\r\n\r\n\r\nApplication Start...\r\n");
   // APP_DEBUG("Compiled at %s %s\r\n", __DATE__, __TIME__);
   /* USER CODE END 2 */
 
