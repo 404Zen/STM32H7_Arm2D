@@ -22,7 +22,7 @@
 #include <stdint.h>
 
 /* USER CODE BEGIN 0 */
-
+#include "async_uart.h"
 /* USER CODE END 0 */
 
 UART_HandleTypeDef huart1;
@@ -165,6 +165,7 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
+#if 0
 __attribute__((section(".sram_dma_bss"))) char strbuf[256];           // DMA CAN NOT ACCESS TCM, SO MUST PLACE IN SRAM, AND MUST NOT BE CACHED.
 void usart1_printf(const char *__format, ...)
 {
@@ -186,13 +187,13 @@ void usart1_printf(const char *__format, ...)
 }
 
 uint8_t test_cnt = 0;
+#endif
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   if(huart->Instance == USART1)
   {
-    // Transmission complete callback for USART1
-    // You can add your code here if needed
-    test_cnt++;
+    // test_cnt++;
+    async_uart_callback(&huart1, AU_EVENT_TRASNMIT_COMPLETE);
   }
 }
 /* USER CODE END 1 */
