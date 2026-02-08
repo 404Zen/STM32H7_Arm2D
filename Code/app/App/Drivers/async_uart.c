@@ -19,7 +19,7 @@ extern UART_HandleTypeDef huart1;
 
 /* Data buffer */
 __attribute__((section(".sram_dma_bss"))) uint8_t uart1_tx_buf[256];
-__attribute__((section(".sram_dma_bss"))) uint8_t uart1_rx_buf[256];
+
 
 /* Declear instance */
 async_uart_instance_t uart1;
@@ -73,7 +73,7 @@ void async_uart_init(void)
     /* uart1 initialize */
     rb_init(&(uart1.tx_buffer), uart1_tx_buf, sizeof(uart1_tx_buf));
     uart1.tx_status = ASYNC_UART_IDLE;
-    rb_init(&(uart1.rx_buffer), uart1_rx_buf, sizeof(uart1_rx_buf));
+    // uart1.rx_buffer = NULL;  
     uart1.rx_status = ASYNC_UART_IDLE;
     uart1.hw_instance = (void *)&huart1;
 }

@@ -10,7 +10,7 @@
 #define __ASYNC_UART_H__
 
 #include "ring_buffer.h"
-#include <stdint.h>
+// #include <stdint.h>
 
 
 
