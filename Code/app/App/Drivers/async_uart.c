@@ -39,7 +39,7 @@ static inline int32_t platform_uart_async_send(void *hw_instance, uint8_t *data,
     }
 }
 
-void async_uart_callback(void *hw_instance, async_uart_event event)
+__attribute__((section(".fast_code"))) void async_uart_callback(void *hw_instance, async_uart_event event)
 {
     if(((UART_HandleTypeDef *)hw_instance)->Instance == USART1)
     {

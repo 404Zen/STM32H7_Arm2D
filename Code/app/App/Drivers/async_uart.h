@@ -38,7 +38,7 @@ typedef struct
 }async_uart_instance_t;
 
 void async_uart_init(void);
-void async_uart_callback(void *hw_instance, async_uart_event event);
+__attribute__((section(".fast_code"))) void async_uart_callback(void *hw_instance, async_uart_event event);
 int32_t async_uart_send(async_uart_instance_t *instance, uint8_t *data, uint32_t len);
 void async_usart_printf(async_uart_instance_t *instance, const char *__format, ...);
 
