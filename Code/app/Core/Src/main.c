@@ -102,10 +102,9 @@ int main(void)
   async_uart_init();    // send use sofeware ring buffer
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buf, 256);
   
-  // async_usart_printf(&uart1, "\r\n\r\n\r\nApplication Start...\r\n");
-  // async_usart_printf(&uart1, "Compiled at %s %s\r\n", __DATE__, __TIME__);
-  // APP_DEBUG("\r\n\r\n\r\nApplication Start...\r\n");
-  // APP_DEBUG("Compiled at %s %s\r\n", __DATE__, __TIME__);
+  async_usart_printf(&uart1, "\r\n\r\n\r\nApplication Start...\r\n");
+  async_usart_printf(&uart1, "Compiled at %s %s\r\n", __DATE__, __TIME__);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */

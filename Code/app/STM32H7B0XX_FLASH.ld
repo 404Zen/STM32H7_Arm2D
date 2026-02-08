@@ -86,6 +86,14 @@ SECTIONS
     _evtor = .; 
   } >RAM AT> EXT_FLASH
 
+  .fast_code :
+  {
+    . = ALIGN(4);
+    *(.fast_code)
+    *(.fast_code*)
+    . = ALIGN(4);
+  } > APP_FAST
+
   /* The program code and other data goes into FLASH */
   .text :
   {
@@ -112,21 +120,7 @@ SECTIONS
     . = ALIGN(4);
   } >EXT_FLASH
 
-  .ARM.extab (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
-  {
-    . = ALIGN(4);
-    *(.ARM.extab* .gnu.linkonce.armextab.*)
-    . = ALIGN(4);
-  } >EXT_FLASH
 
-  .ARM (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
-  {
-    . = ALIGN(4);
-    __exidx_start = .;
-    *(.ARM.exidx*)
-    __exidx_end = .;
-    . = ALIGN(4);
-  } >EXT_FLASH
 
   .preinit_array (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
@@ -280,6 +274,8 @@ SECTIONS
     libc.a:* ( * )
     libm.a:* ( * )
     libgcc.a:* ( * )
+    *(.ARM.exidx*)   /* Remove ARM exception unwinding index table */
+    *(.ARM.extab*)   /* Remove ARM exception unwinding instructions */
   }
 
 }

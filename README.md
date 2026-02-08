@@ -93,6 +93,31 @@ LoopCopyVtorInit:
 
 
 
+# Problems
+
+1. `.ARM.exidx` limit range in ± 1G， limit place code in internal flash(0x0800_8000) and external flash(0x9000_0000).
+
+   ```shell
+   [build] ld.lld: error: <internal>:(.ARM.exidx+0x8): relocation R_ARM_PREL31 out of range: 1811987350 is not in [-1073741824, 1073741823]
+   ```
+
+   **Solution**
+
+   discard in link file, maybe not a good idea(**I'm not familiar with this**). then we can place codes in internal flash when it need fast speed.
+
+   ```ld
+     /DISCARD/ :
+     {
+       libc.a:* ( * )
+       libm.a:* ( * )
+       libgcc.a:* ( * )
+       *(.ARM.exidx*)   /* Remove ARM exception unwinding index table */
+       *(.ARM.extab*)   /* Remove ARM exception unwinding instructions */
+     }
+   ```
+
+   
+
 
 
 # Bugs

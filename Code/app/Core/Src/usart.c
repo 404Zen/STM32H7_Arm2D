@@ -207,7 +207,7 @@ void usart1_printf(const char *__format, ...)
 
 
 #endif
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+__attribute__((section(".fast_code"))) void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
   if(huart->Instance == USART1)
   {
@@ -215,7 +215,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
   }
 }
 uint8_t test_cnt = 0;
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+__attribute__((section(".fast_code"))) void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
   test_cnt++;
   if(huart->Instance == USART1)
@@ -227,7 +227,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   }
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+__attribute__((section(".fast_code"))) void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   test_cnt++;
   if(huart->Instance == USART1)
