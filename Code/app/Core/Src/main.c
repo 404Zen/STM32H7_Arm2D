@@ -25,6 +25,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "async_uart.h"
+#include "key.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -99,6 +100,8 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
+  KeyInit();
+
   async_uart_init();    // send use sofeware ring buffer
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buf, 256);
   
@@ -120,6 +123,8 @@ int main(void)
       HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
       start_tick = HAL_GetTick();
     }
+    vKeySacnTask();
+    KeyFunctionTest();
   }
   /* USER CODE END 3 */
 }

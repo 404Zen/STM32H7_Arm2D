@@ -54,6 +54,8 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     App/Common/ring_buffer.c
     App/Drivers/async_uart.c
+    App/Drivers/key.c
+    App/Drivers/time_port.c
 )
 
 # Add include paths
