@@ -112,7 +112,18 @@ LoopCopyVtorInit:
 - [x] boot
 
 - [ ] application
-
+  - [x] Uart async ring buffer
+    - [x] Transmit use software ring buffer
+  
+    - [x] Receive use DMA circular mode
+  
+  - [ ] Button
+  
+  - [ ] LEDs control
+  
+  - [ ] ARM2D
+  
+  - [ ] 
   
 
 

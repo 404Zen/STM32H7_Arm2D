@@ -29,13 +29,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define APP_DEBUG_ENABLE                1
 
-#if APP_DEBUG_ENABLE
-    #define APP_DEBUG(...)              usart1_printf(__VA_ARGS__)
-#else
-    #define APP_DEBUG(...)              (void)0
-#endif
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -52,6 +46,7 @@
 
 /* USER CODE BEGIN PV */
 extern async_uart_instance_t uart1;
+__attribute__((section(".sram_dma_bss"))) uint8_t uart1_rx_buf[256];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -104,10 +99,11 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  async_uart_init();
+  async_uart_init();    // send use sofeware ring buffer
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buf, 256);
   
-  async_usart_printf(&uart1, "\r\n\r\n\r\nApplication Start...\r\n");
-  async_usart_printf(&uart1, "Compiled at %s %s\r\n", __DATE__, __TIME__);
+  // async_usart_printf(&uart1, "\r\n\r\n\r\nApplication Start...\r\n");
+  // async_usart_printf(&uart1, "Compiled at %s %s\r\n", __DATE__, __TIME__);
   // APP_DEBUG("\r\n\r\n\r\nApplication Start...\r\n");
   // APP_DEBUG("Compiled at %s %s\r\n", __DATE__, __TIME__);
   /* USER CODE END 2 */
