@@ -55,14 +55,16 @@ ENTRY(Reset_Handler)
 /* Specify the memory areas */
 MEMORY
 {
-DTCMRAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 128K
-RAM (xrw)           : ORIGIN = 0x24000000, LENGTH = 1024K
-ITCMRAM (xrw)       : ORIGIN = 0x00000000, LENGTH = 64K
-BOOT (rx)           : ORIGIN = 0x08000000, LENGTH = 32K
-APP_FAST (rx)       : ORIGIN = 0x08008000, LENGTH = 80K
-RW_DATA (rx)        : ORIGIN = 0x0801C000, LENGTH = 16K
-EXT_FLASH (rx)      : ORIGIN = 0x90000000, LENGTH = 2048K 
-RO_DATA (rx)        : ORIGIN = 0x90200000, LENGTH = 6144K  
+  ITCMRAM (xrw)       : ORIGIN = 0x00000000, LENGTH = 64K  
+  BOOT (rx)           : ORIGIN = 0x08000000, LENGTH = 32K
+  APP_FAST (rx)       : ORIGIN = 0x08008000, LENGTH = 80K
+  RW_DATA (rx)        : ORIGIN = 0x0801C000, LENGTH = 16K
+  DTCMRAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 128K
+  RAM (xrw)           : ORIGIN = 0x24000000, LENGTH = 128K
+  RAM_NOCACHE (xrw)   : ORIGIN = 0x24020000, LENGTH = 128K
+  GRAM (xrw)          : ORIGIN = 0x24040000, LENGTH = 768K
+  EXT_FLASH (rx)      : ORIGIN = 0x90000000, LENGTH = 2048K 
+  RO_DATA (rx)        : ORIGIN = 0x90200000, LENGTH = 6144K  
 }
 
 /* Highest address of the user mode stack */
@@ -85,6 +87,15 @@ SECTIONS
     . = ALIGN(4);
     _evtor = .; 
   } >RAM AT> EXT_FLASH
+
+  .gram (NOLOAD):
+  {
+    . = ALIGN(4);
+    PROVIDE(_sgram = .);
+    . = ORIGIN(GRAM) + 768000; /* LENGTH(GRAM); */
+    PROVIDE(_egram = .);
+    . = ALIGN(4);
+  } > GRAM
 
   .fast_code :
   {
@@ -255,6 +266,31 @@ SECTIONS
     _esram_bss = .;
   } >RAM
 
+  _sisram_noncache_data = LOADADDR(.sram_noncache_data);
+  .sram_noncache_data :
+  {
+    . = ALIGN(4);
+    _ssram_noncache_data = .;
+
+    *(.sram_noncache_data)
+    *(.sram_noncache_data*)
+    . = ALIGN(4);
+    _esram_noncache_data = .;
+
+  } >RAM_NOCACHE AT> EXT_FLASH
+  
+  .sram_noncache_bss (NOLOAD) : ALIGN(4)
+  {
+    _ssram_noncache_bss = .;
+
+    *(.sram_noncache_bss)
+    . = ALIGN(4);
+    *(.sram_noncache_bss)
+    . = ALIGN(4);
+
+    _esram_noncache_bss = .;
+  } >RAM_NOCACHE
+
   /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack (NOLOAD) :
   {
@@ -265,7 +301,6 @@ SECTIONS
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
   } >DTCMRAM
-
 
 
   /* Remove information from the standard libraries */

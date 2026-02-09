@@ -19,7 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "octospi.h"
-#include "stm32h7b0xx.h"
 #include "usart.h"
 #include "gpio.h"
 
