@@ -18,7 +18,7 @@
 extern UART_HandleTypeDef huart1;
 
 /* Data buffer */
-__attribute__((section(".sram_dma_bss"))) uint8_t uart1_tx_buf[256];
+__attribute__((section(".sram_noncache_bss"))) uint8_t uart1_tx_buf[256];
 
 
 /* Declear instance */

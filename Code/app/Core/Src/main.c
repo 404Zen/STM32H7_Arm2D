@@ -19,6 +19,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dma.h"
+#include "dma2d.h"
+#include "ltdc.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -26,6 +28,7 @@
 /* USER CODE BEGIN Includes */
 #include "async_uart.h"
 #include "key.h"
+#include <stdint.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,14 +50,14 @@
 
 /* USER CODE BEGIN PV */
 extern async_uart_instance_t uart1;
-__attribute__((section(".sram_dma_bss"))) uint8_t uart1_rx_buf[256];
+__attribute__((section(".sram_noncache_bss"))) uint8_t uart1_rx_buf[256];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MPU_Config(void);
 /* USER CODE BEGIN PFP */
-
+void User_MPU_Config(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -71,8 +74,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
   volatile uint32_t start_tick = 0;
-
-  // SCB_CleanInvalidateDCache();
+#if 0 // Remove defult MPU configuration
   /* USER CODE END 1 */
 
   /* MPU Configuration--------------------------------------------------------*/
@@ -84,7 +86,11 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+#endif
+  User_MPU_Config();
+  SCB_EnableICache();		// ICache enable
+	SCB_EnableDCache();		// DCache enable
+  HAL_Init();
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -98,6 +104,8 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART1_UART_Init();
+  MX_LTDC_Init();
+  MX_DMA2D_Init();
   /* USER CODE BEGIN 2 */
 
   KeyInit();
@@ -108,6 +116,10 @@ int main(void)
   async_usart_printf(&uart1, "\r\n\r\n\r\nApplication Start...\r\n");
   async_usart_printf(&uart1, "Compiled at %s %s\r\n", __DATE__, __TIME__);
 
+  async_usart_printf(&uart1, "Turn LCD Backlight!\r\n");
+  HAL_GPIO_WritePin(LCD_BL_GPIO_Port, LCD_BL_Pin, GPIO_PIN_SET);
+
+  DMA2D_fill_screen();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -191,7 +203,66 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+/* defined in linker script */
+extern char _sgram[];
+extern char _egram[];
+void User_MPU_Config(void)
+{
+  MPU_Region_InitTypeDef MPU_InitStruct = {0};
 
+  /* Disables the MPU */
+  HAL_MPU_Disable();
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
+  MPU_InitStruct.Number = MPU_REGION_NUMBER0;
+  MPU_InitStruct.BaseAddress = 0x24000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_128KB;          
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+    /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0x24020000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_128KB;          
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+    /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
+  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
+  MPU_InitStruct.BaseAddress = (uint32_t)_sgram;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_1MB;          // over SRAM end address, but it is ok, because the left address is reserved.
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+  /* Enables the MPU */
+  HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
+}
 /* USER CODE END 4 */
 
  /* MPU Configuration */

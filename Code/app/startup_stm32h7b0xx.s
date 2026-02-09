@@ -45,6 +45,19 @@ defined in linker script */
 .word  _ebss
 /* stack used for SystemInit_ExtMemCtl; always internal RAM used */
 
+
+.word _svtor
+.word _evtor
+.word _sivtor
+
+.word _ssram_data
+.word _esram_data
+.word _sisramdata
+
+.word _ssram_noncache_data
+.word _esram_noncache_data
+.word _sisram_noncache_data
+
 /**
  * @brief  This is the code that gets called when the processor first
  *          starts execution following a reset event. Only the absolutely
@@ -115,6 +128,23 @@ LoopCopySRAMDataInit:
   adds r4, r0, r3
   cmp r4, r1
   bcc CopySRAMDataInit
+
+/* Copy the data segment initializers from flash to SRAM NOCACHE Section */  
+  ldr r0, =_ssram_noncache_data
+  ldr r1, =_esram_noncache_data
+  ldr r2, =_sisram_noncache_data
+  movs r3, #0
+  b LoopCopySRAMNCDataInit
+
+CopySRAMNCDataInit:
+  ldr r4, [r2, r3]
+  str r4, [r0, r3]
+  adds r3, r3, #4
+    
+LoopCopySRAMNCDataInit:
+  adds r4, r0, r3
+  cmp r4, r1
+  bcc CopySRAMNCDataInit
 
 /* Zero fill the bss segment. */
   ldr r2, =_sbss

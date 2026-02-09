@@ -93,6 +93,21 @@ LoopCopyVtorInit:
 
 
 
+# DMA2D
+
+`480*800*2 = 768000 `~750KB
+
+RAM split two part, last 768KB use as GRAM.(AXI_SRAM2 & AXI_SRAM3)
+
+RAM (xrw)           : ORIGIN = 0x24000000, LENGTH = 256K
+GRAM (xrw)          : ORIGIN = 0x24040000, LENGTH = 768K
+
+
+
+
+
+
+
 # Problems
 
 1. `.ARM.exidx` limit range in ± 1G， limit place code in internal flash(0x0800_8000) and external flash(0x9000_0000).
@@ -126,7 +141,14 @@ LoopCopyVtorInit:
 
    <img src="assets/image-20260201233005767.png" alt="image-20260201233005767" style="zoom: 67%;" /><img src="assets/image-20260201233026332.png" alt="image-20260201233026332" style="zoom:67%;" />
 
-2. 
+2. LCD screen abnormalities
+
+   The output speed of the pins used by the LTDC must be configured to **Very High**; otherwise, screen corruption may occur after a period of operation.
+
+
+
+
+
 
 
 
@@ -142,9 +164,9 @@ LoopCopyVtorInit:
   
     - [x] Receive use DMA circular mode
   
-  - [ ] Button
+  - [x] Button
   
-  - [ ] LEDs control
+  - [ ] ~~LEDs control~~
   
   - [ ] ARM2D
   
