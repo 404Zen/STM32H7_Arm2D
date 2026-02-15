@@ -106,6 +106,15 @@ GRAM (xrw)          : ORIGIN = 0x24040000, LENGTH = 768K
 
 
 
+# ARM2D
+
+### 添加子模块
+
+```shell
+git submodule add https://github.com/ARM-software/Arm-2D.git Code/app/Arm-2D
+git submodule add https://github.com/GorgonMeducer/perf_counter.git Code/app/perf_counter
+```
+
 
 
 # Problems

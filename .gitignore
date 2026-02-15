@@ -54,3 +54,6 @@ dkms.conf
 # debug information files
 *.dwo
 Code/app/debug_cfg
+.DS_Store
+
+
