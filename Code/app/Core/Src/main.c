@@ -29,6 +29,7 @@
 #include "async_uart.h"
 #include "key.h"
 #include <stdint.h>
+#include "io_i2c.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -110,16 +111,23 @@ int main(void)
 
   KeyInit();
 
+  io_i2c_init();
+
   async_uart_init();    // send use sofeware ring buffer
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buf, 256);
   
   async_usart_printf(&uart1, "\r\n\r\n\r\nApplication Start...\r\n");
   async_usart_printf(&uart1, "Compiled at %s %s\r\n", __DATE__, __TIME__);
+  async_usart_printf(&uart1, "System Core Clock: %lu Hz\n", HAL_RCC_GetSysClockFreq());
+  async_usart_printf(&uart1, "PCLK1 Frequency: %lu Hz\n", HAL_RCC_GetPCLK1Freq());
+  async_usart_printf(&uart1, "HCLK Frequency: %lu Hz\n", HAL_RCC_GetHCLKFreq());
 
   async_usart_printf(&uart1, "Turn LCD Backlight!\r\n");
   HAL_GPIO_WritePin(LCD_BL_GPIO_Port, LCD_BL_Pin, GPIO_PIN_SET);
 
   DMA2D_fill_screen();
+
+  io_i2c_test();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -130,13 +138,16 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    io_i2c_loop_task();
     if(HAL_GetTick() - start_tick >= 500)
     { 
       HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
+      HAL_GPIO_TogglePin(TEST_IO_GPIO_Port, TEST_IO_Pin);
       start_tick = HAL_GetTick();
     }
     vKeySacnTask();
     KeyFunctionTest();
+    
   }
   /* USER CODE END 3 */
 }
@@ -262,6 +273,21 @@ void User_MPU_Config(void)
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
+}
+
+uint32_t user_systick_reload_get(void)
+{
+  return SysTick->LOAD;
+}
+uint32_t user_systick_value_get(void)
+{
+  return SysTick->VAL;
+  // return HAL_GetTick();
+}
+
+uint32_t user_get_system_core_clk(void)
+{
+  return SystemCoreClock;
 }
 /* USER CODE END 4 */
 

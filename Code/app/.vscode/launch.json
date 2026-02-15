@@ -11,16 +11,16 @@
             "name": "JLink GDB Server",
             "origin": "snippet",
             "cwd": "${workspaceFolder}",
-            "preBuild": "${command:st-stm32-ide-debug-launch.build}",
+            // "preBuild": "${command:st-stm32-ide-debug-launch.build}",
             "runEntry": "main",
             "imagesAndSymbols": [
-                {
-                    "imageFileName": "${command:st-stm32-ide-debug-launch.get-projects-binary-from-context1}"
-                },
                 {
                     // boot
                     "imageFileName": "${workspaceFolder}/../boot/build/Debug/boot.elf",
                     "symbolLoadAddress": "0x08000000"
+                },
+                {
+                    "imageFileName": "${command:st-stm32-ide-debug-launch.get-projects-binary-from-context1}"
                 },
             ]
         }

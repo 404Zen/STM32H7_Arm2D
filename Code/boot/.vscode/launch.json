@@ -18,11 +18,11 @@
                 {
                     "imageFileName": "${command:st-stm32-ide-debug-launch.get-projects-binary-from-context1}"
                 },
-                {
-                    // application
-                    "imageFileName": "${workspaceFolder}/../app/build/Debug/app.elf",
-                    "symbolLoadAddress": "0x90000000"
-                },
+                // {
+                //     // application
+                //     "imageFileName": "${workspaceFolder}/../app/build/Debug/app.elf",
+                //     "symbolLoadAddress": "0x90000000"
+                // },
             ],
             "serverJLinkScriptFile": ""
         }

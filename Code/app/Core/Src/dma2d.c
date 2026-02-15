@@ -115,7 +115,7 @@ void DMA2D_fill_screen(void)
 	DMA2D->OOR		=	0;										//	设置行偏移 
 	DMA2D->OMAR		=	0x24040000 ;				// 地址
 	DMA2D->NLR		=	(800<<16)|(480);	//	设定长度和宽度
-	DMA2D->OCOLR	=	0x001F;						//	颜色
+	DMA2D->OCOLR	=	0xF100;						//	颜色
 	
 /******	
 等待 垂直数据使能显示状态 ，即LTDC即将刷完一整屏数据的时候

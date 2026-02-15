@@ -69,11 +69,19 @@ void Error_Handler(void);
 #define KEY0_GPIO_Port GPIOC
 #define LED0_Pin GPIO_PIN_1
 #define LED0_GPIO_Port GPIOC
+#define TEST_SDA_Pin GPIO_PIN_7
+#define TEST_SDA_GPIO_Port GPIOE
+#define TEST_SCL_Pin GPIO_PIN_13
+#define TEST_SCL_GPIO_Port GPIOB
 #define LCD_BL_Pin GPIO_PIN_15
 #define LCD_BL_GPIO_Port GPIOD
+#define TEST_IO_Pin GPIO_PIN_12
+#define TEST_IO_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
-
+uint32_t user_systick_reload_get(void);
+uint32_t user_systick_value_get(void);
+uint32_t user_get_system_core_clk(void);
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
