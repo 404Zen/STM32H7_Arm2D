@@ -57,6 +57,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Drivers/key.c
     App/Drivers/time_port.c
     App/Drivers/io_i2c.c
+    App/Drivers/GT9xx_touch.c
 )
 
 # Add include paths

@@ -54,10 +54,10 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, TOUCH_RESET_Pin|TEST_SDA_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOE, TOUCH_RESET_Pin|TOUCH_SCL_Pin|TOUCH_SDA_Pin|TEST_SDA_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, TOUCH_INT_Pin|TOUCH_SCL_Pin|TOUCH_SDA_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(TOUCH_INT_GPIO_Port, TOUCH_INT_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED0_GPIO_Port, LED0_Pin, GPIO_PIN_SET);
@@ -97,7 +97,7 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = TOUCH_SCL_Pin|TOUCH_SDA_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : KEY0_Pin */

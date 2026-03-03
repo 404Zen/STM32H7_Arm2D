@@ -13,6 +13,15 @@
 #include <sys/_intsup.h>
 #include "main.h"
 #include "stm32h7xx_hal_gpio.h"
+#include "async_uart.h"
+
+#define IO_I2C_DEBUG_ENABLE               0
+
+#if IO_I2C_DEBUG_ENABLE
+    #define i2c_printf(...)              debug_printf(__VA_ARGS__)
+#else
+    #define i2c_printf(...)              (void)0
+#endif
 
 typedef void (*i2c_pin_write_t)(void *port, uint16_t pin, uint32_t value);
 typedef uint32_t (*i2c_pin_read_t)(void *port, uint16_t pin);
@@ -92,7 +101,10 @@ typedef enum : uint8_t
     IO_I2C_OPS_DATA_SDA_SET,
     IO_I2C_OPS_DATA_SCL_SET,
     IO_I2C_OPS_DATA_SCL_RESET,
+
     IO_I2C_OPS_DATA_ACK,
+    IO_I2C_OPS_DATA_ACK_READ,
+    IO_I2C_OPS_DATA_ACK_OK,
 
     IO_I2C_OPS_SEND_ACK,
     IO_I2C_OPS_SEND_ACK_SCL_SET,
@@ -119,10 +131,13 @@ typedef struct
     uint16_t    data_len;
     uint8_t     *data;
 
+    
+
     uint32_t    start_tick;
     uint32_t    exceed_tick;
     uint32_t    delay_tick;
 
+    /* parameters using in loop task */
     uint8_t     sending_data;
     uint8_t     sending_bit;
 

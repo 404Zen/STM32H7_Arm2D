@@ -42,8 +42,7 @@
 
 
 #if 1
-extern async_uart_instance_t uart1;
-#define KEY_DEBUG(...)													async_usart_printf(&uart1, __VA_ARGS__)
+#define KEY_DEBUG(...)                                                 debug_printf(__VA_ARGS__)
 #else
 #define KEY_DEBUG(...)													(void*)0
 #endif

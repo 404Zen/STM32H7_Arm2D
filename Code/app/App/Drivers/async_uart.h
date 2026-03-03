@@ -40,7 +40,7 @@ typedef struct
 void async_uart_init(void);
 __attribute__((section(".fast_code"))) void async_uart_callback(void *hw_instance, async_uart_event event);
 int32_t async_uart_send(async_uart_instance_t *instance, uint8_t *data, uint32_t len);
-void async_usart_printf(async_uart_instance_t *instance, const char *__format, ...);
-
+uint16_t async_usart_printf(async_uart_instance_t *instance, const char *__format, ...);
+void debug_printf(const char *__format, ...);                                                   // usart1 
 
 #endif /* __ASYNC_UART_H__ */

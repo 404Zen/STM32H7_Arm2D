@@ -30,6 +30,7 @@
 #include "key.h"
 #include <stdint.h>
 #include "io_i2c.h"
+#include "GT9xx_touch.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -111,8 +112,6 @@ int main(void)
 
   KeyInit();
 
-  io_i2c_init();
-
   async_uart_init();    // send use sofeware ring buffer
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buf, 256);
   
@@ -127,7 +126,11 @@ int main(void)
 
   DMA2D_fill_screen();
 
-  io_i2c_test();
+  io_i2c_init();
+  GT9XX_Touch_Init();
+
+
+  // io_i2c_test();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -139,6 +142,7 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     io_i2c_loop_task();
+    GT911_LoopTask();
     if(HAL_GetTick() - start_tick >= 500)
     { 
       HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);

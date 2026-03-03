@@ -12,10 +12,11 @@
 #include "io_i2c.h"
 
 //Platform
+#include "main.h"
+#include "stm32h7xx_hal.h"
 #include "stm32h7xx_hal_gpio.h"
-#include "async_uart.h"
 
-extern async_uart_instance_t uart1;
+
 static io_i2c_platform_t platform_ops;
 
 struct io_i2c_instance_t touch_i2c;
@@ -24,7 +25,7 @@ static struct io_i2c_instance_t *loop_list = NULL;
 void test_callback(uint8_t event);
 
 static int io_i2c_time_exceed(uint32_t *start_time, uint32_t *time_out);
-static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance);
+static int io_i2c_state_machine(struct io_i2c_instance_t *instance);
 
 void io_i2c_init(void)
 {
@@ -33,24 +34,6 @@ void io_i2c_init(void)
     platform_ops.io_i2c_pin_read = io_i2c_read_adapter;
     platform_ops.io_i2c_get_tick = io_i2c_get_tick;
     platform_ops.io_i2c_reload_tick = user_systick_reload_get() + 1;            // 280000 = 1ms
-    
-
-    /* Instance init */
-    touch_i2c.instance_id = 0;
-    touch_i2c.scl_port = TOUCH_SCL_GPIO_Port;
-    touch_i2c.scl_pin = TOUCH_SCL_Pin;
-    touch_i2c.sda_port = TOUCH_SDA_GPIO_Port;
-    touch_i2c.sda_pin = TOUCH_SDA_Pin;
-
-    touch_i2c.device_addr = 0xBA;
-    touch_i2c.device_addr_mode = 0;
-    touch_i2c.callback = test_callback;
-
-    touch_i2c.speed = 100;
-
-    io_i2c_instance_register(&touch_i2c);
-    platform_ops.io_i2c_pin_write(touch_i2c.sda_port, touch_i2c.scl_pin, 1);
-    platform_ops.io_i2c_pin_write(touch_i2c.scl_port, touch_i2c.scl_pin, 1);
 }
 
 int io_i2c_instance_register(struct io_i2c_instance_t *instance)
@@ -79,11 +62,14 @@ int io_i2c_instance_register(struct io_i2c_instance_t *instance)
     loop_list->ops_param.start_tick = 0;
     loop_list->ops_param.exceed_tick = 0;
     sys_core_clk = user_get_system_core_clk();
-    /* 100 KHz = 10 us = 2800 ticks */ 
+    /* 100 KHz = 10 us = 2800 ticks, test in 11.5uS */ 
     loop_list->ops_param.delay_tick = sys_core_clk/1000/loop_list->speed/2;
 
 
     loop_list->next = NULL;
+
+    platform_ops.io_i2c_pin_write(instance->sda_port, instance->sda_pin, 1);
+    platform_ops.io_i2c_pin_write(instance->scl_port, instance->scl_pin, 1);
 
     return 0;
 }
@@ -101,10 +87,8 @@ void io_i2c_loop_task(void)
                 break;
 
             case IO_I2C_READ:
-                io_i2c_state_machine_read(list);
-                break;
-
             case IO_I2C_WRITE:
+                io_i2c_state_machine(list);
                 break;
                 
             case IO_I2C_ERROR:
@@ -146,7 +130,7 @@ static int io_i2c_time_exceed(uint32_t *start_time, uint32_t *time_out)
     return *time_out;
 }
 
-static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
+static int io_i2c_state_machine(struct io_i2c_instance_t *instance)
 {
     static uint32_t sda_val = 0;
     switch (instance->ops_param.ops_state) 
@@ -159,6 +143,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
             instance->ops_param.start_tick = platform_ops.io_i2c_get_tick();
             instance->ops_param.exceed_tick = instance->ops_param.delay_tick;
             instance->ops_param.ops_state = IO_I2C_OPS_START_SDA0;
+            i2c_printf("IDLE trans to START\r\n");
             break;
         
         case IO_I2C_OPS_START_SDA0:
@@ -176,6 +161,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
 
                 if(instance->ops_param.ops_state == IO_I2C_OPS_SR_SDA0)
                 {
+                    i2c_printf("SR sending\r\n");
                     instance->ops_param.ops_state = IO_I2C_OPS_SR_SCL0;
                 }
                 
@@ -206,8 +192,8 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                         instance->ops_param.sending_data = (instance->device_addr >> 8);
                         instance->ops_param.sending_bytes = 2;
                     }
+                    i2c_printf("Start signal sent, send device address 0x%02X, dev address mode %d\r\n", instance->device_addr, instance->device_addr_mode);
                     instance->ops_param.sending_bit = 8;
-
                     instance->ops_param.ops_state = IO_I2C_OPS_DEV_ADDR_SDA_SET;
                 }
 
@@ -217,14 +203,17 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                     /* 7 bits address */ 
                     if(instance->device_addr_mode == 0)
                     {
-                        instance->ops_param.sending_data = (instance->device_addr | 0x01);
+                        i2c_printf("Setting 8bit read device address\r\n");
+                        instance->ops_param.sending_data = ((instance->device_addr) | 0x01);
                         instance->ops_param.sending_bytes = 1;
                     }
                     else 
                     {
-                        instance->ops_param.sending_data = ((instance->device_addr >> 8) | 0x01);
+                        i2c_printf("Setting 16bit read device address\r\n");
+                        instance->ops_param.sending_data = (((instance->device_addr) >> 8) | 0x01);
                         instance->ops_param.sending_bytes = 2;
                     }
+                    instance->ops_param.sending_bit = 8;
                     instance->ops_param.ops_state = IO_I2C_OPS_DEV_RADDR_SDA_SET;
                 }
 
@@ -244,9 +233,10 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                 /* no need get new start tick ,it is updated in io_i2c_time_exceed() */ 
                 instance->ops_param.exceed_tick = instance->ops_param.delay_tick;
                 /* set sda line according device address */
-                if(--(instance->ops_param.sending_bit))
+                if((instance->ops_param.sending_bit)--)
                 {
                     sda_val =((instance->ops_param.sending_data & (0x01 << instance->ops_param.sending_bit)) == 0x00) ? 0 : 1;
+                    i2c_printf("%d.", sda_val);
                     platform_ops.io_i2c_pin_write(instance->sda_port, instance->sda_pin,sda_val);
                     
                     if(instance->ops_param.ops_state == IO_I2C_OPS_DEV_ADDR_SDA_SET)
@@ -275,11 +265,13 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                     platform_ops.io_i2c_pin_write(instance->sda_port, instance->sda_pin,1);
                     if(instance->ops_param.ops_state == IO_I2C_OPS_DEV_ADDR_SDA_SET)
                     {
+                        i2c_printf("Device address is set, wait device ack!\r\n");
                         instance->ops_param.ops_state = IO_I2C_OPS_DEV_ADDR_ACK;
                     }
 
                     if(instance->ops_param.ops_state == IO_I2C_OPS_REG_ADDR_SDA_SET)
                     {
+                        i2c_printf("Reg address is set, wait device ack!\r\n");
                         instance->ops_param.ops_state = IO_I2C_OPS_REG_ADDR_ACK;
                     }
 
@@ -290,6 +282,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
 
                     if(instance->ops_param.ops_state == IO_I2C_OPS_DEV_RADDR_SDA_SET)
                     {
+                        i2c_printf("Read device address is set, wait device ack!\r\n");
                         instance->ops_param.ops_state = IO_I2C_OPS_DEV_RADDR_ACK;
                     }
                 }
@@ -388,6 +381,11 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                 {
                     instance->ops_param.ops_state = IO_I2C_OPS_DEV_RADDR_ACK_READ;
                 }
+
+                if(instance->ops_param.ops_state == IO_I2C_OPS_DATA_ACK)
+                {
+                    instance->ops_param.ops_state = IO_I2C_OPS_DATA_ACK_READ;
+                }
             }
             break;
 
@@ -395,6 +393,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
         case IO_I2C_OPS_DEV_ADDR_ACK_READ:
         case IO_I2C_OPS_REG_ADDR_ACK_READ:
         case IO_I2C_OPS_DEV_RADDR_ACK_READ:
+        case IO_I2C_OPS_DATA_ACK_READ:
             if(io_i2c_time_exceed(&(instance->ops_param.start_tick), &(instance->ops_param.exceed_tick)) == 0)
             {
                 /* no need get new start tick ,it is updated in io_i2c_time_exceed() */ 
@@ -403,6 +402,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                 if(platform_ops.io_i2c_pin_read(instance->sda_port, instance->sda_pin) != 0)
                 {
                     /* device no ack */
+                    i2c_printf("ack failed, last state is %d\r\n", instance->ops_param.ops_state);
                     instance->ops_param.ops_state = IO_I2C_OPS_DEV_ACK_FAILED;
                 }
                 else 
@@ -410,17 +410,26 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                     /* device ack */
                     if(instance->ops_param.ops_state == IO_I2C_OPS_DEV_ADDR_ACK_READ)
                     {   
+                        i2c_printf("dev address ack ok\r\n");
                         instance->ops_param.ops_state = IO_I2C_OPS_DEV_ADDR_ACK_OK;
                     }
 
                     if(instance->ops_param.ops_state == IO_I2C_OPS_REG_ADDR_ACK_READ)
                     {   
+                        i2c_printf("reg address ack ok\r\n");
                         instance->ops_param.ops_state = IO_I2C_OPS_REG_ADDR_ACK_OK;
                     }
 
                     if(instance->ops_param.ops_state == IO_I2C_OPS_DEV_RADDR_ACK_READ)
                     {   
+                        i2c_printf("read device address ack ok\r\n");
                         instance->ops_param.ops_state = IO_I2C_OPS_DEV_RADDR_ACK_OK;
+                    }
+
+                    if(instance->ops_param.ops_state == IO_I2C_OPS_DATA_ACK_READ)
+                    {   
+                        i2c_printf("write data ack ok\r\n");
+                        instance->ops_param.ops_state = IO_I2C_OPS_DATA_ACK_OK;
                     }
                 }
 
@@ -432,6 +441,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
         case IO_I2C_OPS_DEV_ADDR_ACK_OK:
         case IO_I2C_OPS_REG_ADDR_ACK_OK:
         case IO_I2C_OPS_DEV_RADDR_ACK_OK:
+        case IO_I2C_OPS_DATA_ACK_OK:
             if(io_i2c_time_exceed(&(instance->ops_param.start_tick), &(instance->ops_param.exceed_tick)) == 0)
             {
                 /* no need get new start tick ,it is updated in io_i2c_time_exceed() */ 
@@ -446,6 +456,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                         instance->ops_param.sending_data = instance->device_addr & 0xFF;
                         instance->ops_param.sending_bit = 8;
                         instance->ops_param.ops_state = IO_I2C_OPS_DEV_ADDR_SDA_SET;
+                        i2c_printf("device address ack ok, setting next 8bit address\r\n");
                     }
 
                     if(instance->ops_param.ops_state == IO_I2C_OPS_REG_ADDR_ACK_OK)
@@ -453,6 +464,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                         instance->ops_param.sending_data = (instance->ops_param.reg_addr & 0xFF);
                         instance->ops_param.sending_bit = 8;
                         instance->ops_param.ops_state = IO_I2C_OPS_REG_ADDR_SDA_SET;
+                        i2c_printf("reg addr ack ok, sending next 8bit address\r\n");
                     }
 
                     if(instance->ops_param.ops_state == IO_I2C_OPS_DEV_RADDR_ACK_OK)
@@ -461,12 +473,23 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                         instance->ops_param.sending_data = instance->device_addr & 0xFF;
                         instance->ops_param.sending_bit = 8;
                         instance->ops_param.ops_state = IO_I2C_OPS_DEV_RADDR_SDA_SET;
+                        i2c_printf("first 8bit of 16bit read device address set ok\r\n");
+                    }
+
+                    if(instance->ops_param.ops_state == IO_I2C_OPS_DATA_ACK_OK)
+                    {
+                        instance->ops_param.data++;
+                        instance->ops_param.sending_data = *(instance->ops_param.data);
+                        instance->ops_param.sending_bit = 8;
+                        instance->ops_param.ops_state = IO_I2C_OPS_DATA_SDA_SET;
+                        i2c_printf("write data ack ok, sending next data byte\r\n");
                     }
                 }
                 else 
                 {
                     if(instance->ops_param.ops_state == IO_I2C_OPS_DEV_ADDR_ACK_OK)
                     {
+                        i2c_printf("device address set done!\r\n");
                         /* device address finished , send reg address */
                         instance->ops_param.sending_bytes = instance->reg_address_bytes;
                         if(instance->ops_param.sending_bytes == 1)
@@ -476,6 +499,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                             instance->ops_param.sending_bit = 8;
                             instance->ops_param.ops_state = IO_I2C_OPS_REG_ADDR_SDA_SET;
 
+                            i2c_printf("set 8bit reg address 0x%02X\r\n", instance->ops_param.sending_data);
                         }
                         else if(instance->ops_param.sending_bytes == 2)
                         {
@@ -483,6 +507,8 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                             instance->ops_param.sending_data = (instance->ops_param.reg_addr >> 8);
                             instance->ops_param.sending_bit = 8;
                             instance->ops_param.ops_state = IO_I2C_OPS_REG_ADDR_SDA_SET;
+
+                            i2c_printf("set 16bit reg address 0x%04X 1/2 \r\n", instance->ops_param.reg_addr);
                         }
                         else 
                         {
@@ -502,6 +528,8 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                             platform_ops.io_i2c_pin_write(instance->scl_port, instance->scl_pin,1);
 
                             instance->ops_param.ops_state = IO_I2C_OPS_SR_SDA0;
+
+                            i2c_printf("Reg address set ok, READ data, next is SR\r\n");
                         }
                         else if(instance->state == IO_I2C_WRITE)
                         {
@@ -510,6 +538,7 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                             instance->ops_param.sending_data = *(instance->ops_param.data);
                             instance->ops_param.sending_bit = 8;
                             instance->ops_param.ops_state = IO_I2C_OPS_DATA_SDA_SET;
+                            i2c_printf("Reg address set ok, WRITE data, next is DATA\r\n");
                         }
                     }
 
@@ -525,12 +554,26 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                             instance->ops_param.sending_bit = 8;
 
                             instance->ops_param.ops_state = IO_I2C_OPS_READ_SCL_SET;
+
+                            i2c_printf("Ready to read data %d * %d bits.\r\n", instance->ops_param.sending_bytes, instance->ops_param.sending_bit);
                         }
                         else 
                         {
                             /* should never run here */
                             instance->ops_param.ops_state = IO_I2C_OPS_ERROR;
                         }
+                    }
+
+                    if(instance->ops_param.ops_state == IO_I2C_OPS_DATA_ACK_OK)
+                    {
+                        /* write data finished, send stop signal */
+                        instance->ops_param.exceed_tick = instance->ops_param.delay_tick;
+                        platform_ops.io_i2c_pin_write(instance->sda_port, instance->sda_pin,0);
+                        platform_ops.io_i2c_pin_write(instance->scl_port, instance->scl_pin,1);
+
+                        instance->ops_param.ops_state = IO_I2C_OPS_SEND_STOP;
+
+                        i2c_printf("Write data finished, next is STOP\r\n");
                     }
                 }
             }
@@ -554,6 +597,8 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                 sda_val = (platform_ops.io_i2c_pin_read(instance->sda_port, instance->sda_pin) == 0x00) ? 0x00 : 0x01;
                 instance->ops_param.sending_data |= sda_val;
 
+                i2c_printf("%d.", sda_val);
+
                 platform_ops.io_i2c_pin_write(instance->scl_port, instance->scl_pin,0);
                 instance->ops_param.sending_bit--;
 
@@ -570,12 +615,13 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                     if(instance->ops_param.sending_bytes)
                     {
                         /* send ack */
+                        i2c_printf("read not finish, send ack\r\n");
                         instance->ops_param.ops_state = IO_I2C_OPS_SEND_ACK;
-
                     }
                     else 
                     {
                         /* send nack */
+                        i2c_printf("read finished, send nack\r\n");
                         instance->ops_param.ops_state = IO_I2C_OPS_SEND_NACK;
                     }
                 }
@@ -652,13 +698,15 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                 if(instance->ops_param.ops_state == IO_I2C_OPS_SEND_ACK_DONE)
                 {
                     instance->ops_param.exceed_tick = 0;
+                    instance->ops_param.sending_bit = 8;
                     // ack done, read next data 
                     instance->ops_param.ops_state = IO_I2C_OPS_READ_SCL_SET;
                 }
 
                 if(instance->ops_param.ops_state == IO_I2C_OPS_SEND_NACK_DONE)
                 {
-                    instance->ops_param.exceed_tick = instance->ops_param.delay_tick;;
+                    instance->ops_param.exceed_tick = instance->ops_param.delay_tick;
+                    i2c_printf("Send STOP\r\n");
                     instance->ops_param.ops_state = IO_I2C_OPS_SEND_STOP;
                 }
             }
@@ -693,10 +741,10 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
                 instance->ops_param.ops_state = IO_I2C_OPS_IDLE;
                 instance->state = IO_I2C_IDLE;
 
-                // send done call back
+                // transmit done call back
                 if(instance->callback != NULL)
                 {
-                    instance->callback(1);
+                    instance->callback(0);
                 }
             }
             break;
@@ -708,12 +756,15 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
         case IO_I2C_OPS_REG_ERROR:
         case IO_I2C_OPS_ERROR:
         default:
-            if(io_i2c_time_exceed(&(instance->ops_param.start_tick), &(instance->ops_param.exceed_tick)) == 0)
+            // if(io_i2c_time_exceed(&(instance->ops_param.start_tick), &(instance->ops_param.exceed_tick)) == 0)
             {
-                instance->ops_param.start_tick = 0;
-                instance->ops_param.exceed_tick = 0;
-                instance->ops_param.sending_data = 0;
-                instance->ops_param.sending_bit = 0;
+                // instance->ops_param.start_tick = 0;
+                // instance->ops_param.exceed_tick = 0;
+                // instance->ops_param.sending_data = 0;
+                // instance->ops_param.sending_bit = 0;
+                platform_ops.io_i2c_pin_write(instance->sda_port, instance->sda_pin,1);
+                platform_ops.io_i2c_pin_write(instance->scl_port, instance->scl_pin,1);
+                i2c_printf("ERROR, last state is %d\r\n", instance->ops_param.ops_state);
                 instance->state = IO_I2C_ERROR;
                 instance->callback(instance->ops_param.ops_state);
             }
@@ -725,6 +776,26 @@ static int io_i2c_state_machine_read(struct io_i2c_instance_t *instance)
 
 int io_i2c_write_reg(struct io_i2c_instance_t *instance, uint16_t reg_addr, uint16_t len, uint8_t *data)
 {
+    if(instance == NULL)
+    {
+        return -1;
+    }
+    else 
+    {
+        if(instance->state != IO_I2C_IDLE)
+        {
+            return -2;
+        }
+        else 
+        {
+            instance->state = IO_I2C_WRITE;
+            instance->ops_param.reg_addr = reg_addr;
+            instance->ops_param.data_len = len;
+            instance->ops_param.data = data;
+
+            return 0;
+        }
+    }
     return 0;
 }
 
@@ -763,18 +834,14 @@ int io_i2c_read_reg(struct io_i2c_instance_t *instance, uint16_t reg_addr, uint1
 
 static uint32_t i2c_test_start = 0;
 static uint32_t i2c_test_left = 0; // platform_ops.io_i2c_reload_tick * 500;
+uint8_t touch_id[11] = {0};
 
 void io_i2c_test(void)
 {
-    // static uint32_t val = 0;
-    uint8_t touch_id[11];
-
-    // io_i2c_instance_t instance;
-
-    // instance = touch_i2c;
-
+    /* Should be 0x39 0x31 0x31 0x00 0x60 0x10 0x20 0x20 0x03 0xE0 0x01 */
     io_i2c_read_reg(&touch_i2c, 0x8140, 11, touch_id);
 
+    HAL_Delay(100);
 #if 0
     if(io_i2c_time_exceed(&i2c_test_start, &i2c_test_left) == 0) 
     {
@@ -795,6 +862,12 @@ void io_i2c_test(void)
 void test_callback(uint8_t event)
 {
     static uint8_t test_val = 0;
+
+    if(event == 0)
+    {
+        test_val = 0;
+    }
+
     if(event == 1)
     {
         test_val++;

@@ -18,11 +18,14 @@
 extern UART_HandleTypeDef huart1;
 
 /* Data buffer */
-__attribute__((section(".sram_noncache_bss"))) uint8_t uart1_tx_buf[256];
+__attribute__((section(".sram_noncache_bss"))) uint8_t uart1_tx_buf[2048];
 
 
 /* Declear instance */
 async_uart_instance_t uart1;
+
+
+uint16_t async_uart_vprintf(async_uart_instance_t *instance, const char *__format, va_list args);
 
 static inline int32_t platform_uart_async_send(void *hw_instance, uint8_t *data, uint32_t len)
 {
@@ -78,6 +81,8 @@ void async_uart_init(void)
     uart1.hw_instance = (void *)&huart1;
 }
 
+
+
 int32_t async_uart_send(async_uart_instance_t *instance, uint8_t *data, uint32_t len)
 {
     uint8_t *send_data_ptr = NULL;
@@ -116,9 +121,33 @@ int32_t async_uart_send(async_uart_instance_t *instance, uint8_t *data, uint32_t
 
 
 
-/* Application code */
-void async_usart_printf(async_uart_instance_t *instance, const char *__format, ...)
+uint16_t async_uart_vprintf(async_uart_instance_t *instance, const char *__format, va_list args)
 {
+    char strbuf[256] = {0};
+    uint16_t formatted_len = 0;
+    uint16_t written_len = 0;
+
+    // 格式化字符串
+    formatted_len = vsnprintf((char *)strbuf, sizeof(strbuf), __format, args);
+
+    // 检查格式化是否成功
+    if (formatted_len >= sizeof(strbuf))
+    {
+        formatted_len = sizeof(strbuf) - 1;
+        strbuf[formatted_len] = '\0';
+    }
+
+    if(formatted_len)
+    {
+        written_len = async_uart_send(instance, (uint8_t *)strbuf, formatted_len);
+    }
+
+    return written_len;
+}
+
+uint16_t async_usart_printf(async_uart_instance_t *instance, const char *__format, ...)
+{
+#if 0
     char strbuf[256] = {0};
     uint16_t len = 0;
     va_list list;
@@ -131,5 +160,32 @@ void async_usart_printf(async_uart_instance_t *instance, const char *__format, .
     {
         async_uart_send(instance, (uint8_t *)strbuf, len);
     }
+#endif
+    va_list args;
+    uint16_t result;
+    
+    va_start(args, __format);
+    result = async_uart_vprintf(instance, __format, args);
+    va_end(args);
+    
+    return result;
 }
+
+/**
+ * @brief  Send data via usart1
+ * @param[in]  param1 Description of the input parameter
+ * @param[out] param2 Description of the output parameter
+ * @retval HAL status
+ * @note   Additional notes, e.g., This function must be called after initialization.
+ * @warning Warnings, e.g., This function is not thread-safe.
+ */
+
+void debug_printf(const char *__format, ...)
+{
+    va_list args;
+    va_start(args, __format);
+    async_uart_vprintf(&uart1, __format, args);
+    va_end(args);
+}
+
 
