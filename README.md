@@ -166,7 +166,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 
 Arm-2D depend on DSP Library, so we need add DSP in this project.
 
-~~Install STM32 X-CUBE-ALGOBUILD pack and then selected DSP Library in STM32CubeMX~~(Detail in Problems #3)
+~~Install STM32 X-CUBE-ALGOBUILD pack and then selected DSP Library in STM32CubeMX~~(Detail in Problems #2)
 
 **DO NOT** use a folder named **`Middlewares`** for your own CMSIS-DSP library. If you use libraries from STM32CubeMX, the tool may overwrite or delete your custom files in that directory. 
 
@@ -398,7 +398,7 @@ After that, compile and download execute file to MCU， and then we can see a bu
   
   - [ ] ~~LEDs control~~
   
-  - [ ] ARM2D
+  - [x] ARM2D
   
   - [ ] 
   
