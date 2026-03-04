@@ -31,9 +31,29 @@ message("Build type: " ${CMAKE_BUILD_TYPE})
 # Enable CMake support for ASM and C languages
 enable_language(C ASM)
 
+# Clang emits warnings for GCC-style __attribute__((optimize)) in CubeMX headers
+# silence that globally rather than patching generated files
+if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    add_compile_options(-Wno-unknown-attributes)
+endif()
+
 # Create an executable object type
 add_executable(${CMAKE_PROJECT_NAME})
 
+add_library(arm2d_includes INTERFACE)
+target_include_directories(arm2d_includes INTERFACE
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/ST/ARM/DSP/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS-DSP/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/Arm-2D_Port/config
+)
+
+set(ARM2D_HELPER ON)
+set(ARM2D_LCD_PRINTF ON)
+set(ARM2D_CONTROLS ON)
+
+set(CMSISCORE "${CMAKE_SOURCE_DIR}/Drivers/CMSIS" CACHE STRING "Path to CMSIS Core")
+# set(CMSISCORE "${CMAKE_SOURCE_DIR}/Drivers/CMSIS" CACHE STRING "Path to CMSIS Core" FORCE)
+add_compile_definitions(__PERF_COUNTER__)  
 
 add_compile_definitions(
     VECT_TAB_SRAM
@@ -42,6 +62,20 @@ add_compile_definitions(
 
 # Add STM32CubeMX generated sources
 add_subdirectory(cmake/stm32cubemx)
+add_subdirectory(cmake/perf_counter)
+add_subdirectory(cmake/arm2d)
+
+# build CMSIS-DSP from the submodule
+add_subdirectory(CMSIS-DSP)
+
+# Special optization for Arm-2D library
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(ARM2D PRIVATE -O3 -ffast-math -g0)
+else()
+    target_compile_options(ARM2D PRIVATE -O3)
+endif()
+
+target_link_libraries(ARM2D PUBLIC arm2d_includes)
 
 
 # Link directories setup
@@ -58,6 +92,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     App/Drivers/time_port.c
     App/Drivers/io_i2c.c
     App/Drivers/GT9xx_touch.c
+    Arm-2D_Port/adapter/arm_2d_disp_adapter_0.c
 )
 
 # Add include paths
@@ -65,11 +100,18 @@ target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
     App/Common
     App/Drivers
+    perf_counter/
+    Arm-2D_Port/config
+    Arm-2D_Port/adapter
+    Arm-2D/Library/Include
+    Arm-2D/Helper/Include
 )
 
 # Add project symbols (macros)
 target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
+    RTE_Acceleration_Arm_2D_Helper_Disp_Adapter0
+    RTE_Acceleration_Arm_2D_Extra_LCD_printf
 )
 
 # Remove wrong libob.a library dependency when using cpp files
@@ -77,6 +119,9 @@ list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}
-    stm32cubemx
     # Add user defined libraries
+    ARM2D
+    CMSISDSP       # DSP runtime for math functions used by ARM2D helper
+    perf_counter
+    stm32cubemx
 )

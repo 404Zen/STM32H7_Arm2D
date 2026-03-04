@@ -19,6 +19,14 @@
 struct io_i2c_instance_t GT911_i2c;
 GT9XX_Touch_Handle_t GT911 = {0};
 
+/**
+ * @brief  IOI2C callback function, GT911_LoopTask internal use only.
+ * @param[in]  param1 Description of the input parameter
+ * @param[out] param2 Description of the output parameter
+ * @retval HAL status
+ * @note   Additional notes, e.g., This function must be called after initialization.
+ * @warning Warnings, e.g., This function is not thread-safe.
+ */
 
 void GT911_i2c_callback(uint8_t event)
 {
@@ -32,6 +40,7 @@ void GT911_i2c_callback(uint8_t event)
         GT9XX_printf("GT9XX_i2c Error, event = %d\r\n", event);
     }
 }
+
 
 static void GT911_INT_InFloating_Init(void)
 {
@@ -71,7 +80,7 @@ void GT9XX_Touch_Init(void)
     GT911_i2c.callback = GT911_i2c_callback;
     GT911_i2c.reg_address_bytes = 2;
 
-    GT911_i2c.speed = 100;
+    GT911_i2c.speed = 200;
 
     io_i2c_instance_register(&GT911_i2c);
 

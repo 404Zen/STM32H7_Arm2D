@@ -31,6 +31,14 @@
 #include <stdint.h>
 #include "io_i2c.h"
 #include "GT9xx_touch.h"
+
+
+/* ARM 2D */
+#include "perf_counter.h"
+#include "arm_2d_helper.h"
+#include "arm_2d_disp_adapters.h"
+#include "arm_2d_example_controls.h"
+#include "arm_2d.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,7 +72,37 @@ void User_MPU_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+bool check_dwt_enabled(void)  
+{  
+    // 检查 Debug Exception and Monitor Control Register  
+    uint32_t demcr = CoreDebug->DEMCR;  
+    bool debug_enabled = (demcr & CoreDebug_DEMCR_TRCENA_Msk) != 0;  
+      
+    // 检查 DWT Control Register  
+    uint32_t dwt_ctrl = DWT->CTRL;  
+    bool dwt_enabled = (dwt_ctrl & DWT_CTRL_CYCCNTENA_Msk) != 0;  
+      
+    // printf("DEMCR: 0x%08lX (TRCENA=%s)\r\n",   
+    //        demcr, debug_enabled ? "ON" : "OFF");  
+    // printf("DWT_CTRL: 0x%08lX (CYCCNTENA=%s)\r\n",   
+    //        dwt_ctrl, dwt_enabled ? "ON" : "OFF");  
+      
+    return debug_enabled && dwt_enabled;  
+}
 
+void enable_dwt(void)  
+{  
+    // 启用 Debug Exception and Monitor Control Register  
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;  
+      
+    // 启用 DWT cycle counter  
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;  
+      
+    // 重置计数器  
+    DWT->CYCCNT = 0;  
+      
+    // printf("DWT enabled\r\n");  
+}
 /* USER CODE END 0 */
 
 /**
@@ -76,6 +114,8 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
   volatile uint32_t start_tick = 0;
+  arm_fsm_rt_t tResult;
+  (void)tResult;
 #if 0 // Remove defult MPU configuration
   /* USER CODE END 1 */
 
@@ -124,13 +164,25 @@ int main(void)
   async_usart_printf(&uart1, "Turn LCD Backlight!\r\n");
   HAL_GPIO_WritePin(LCD_BL_GPIO_Port, LCD_BL_Pin, GPIO_PIN_SET);
 
-  DMA2D_fill_screen();
+  // DMA2D_fill_screen();
 
   io_i2c_init();
   GT9XX_Touch_Init();
 
+  /* ARM 2D*/
+  if(check_dwt_enabled() ==  false)
+  {
+    enable_dwt();
+  }
+  perfc_init(true);
+  arm_irq_safe 
+  {
+    arm_2d_init();
+  }
 
-  // io_i2c_test();
+  /* initialize the display adapter 0 service */
+  disp_adapter0_init();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -141,6 +193,8 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    tResult = disp_adapter0_task();
+
     io_i2c_loop_task();
     GT911_LoopTask();
     if(HAL_GetTick() - start_tick >= 500)

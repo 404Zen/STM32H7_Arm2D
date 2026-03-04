@@ -131,7 +131,7 @@ typedef struct
     uint16_t    data_len;
     uint8_t     *data;
 
-    
+
 
     uint32_t    start_tick;
     uint32_t    exceed_tick;
@@ -186,7 +186,5 @@ int io_i2c_instance_register(struct io_i2c_instance_t *instance);
 int io_i2c_write_reg(struct io_i2c_instance_t *instance, uint16_t reg_addr, uint16_t len, uint8_t *data);
 int io_i2c_read_reg(struct io_i2c_instance_t *instance, uint16_t reg_addr, uint16_t len, uint8_t *data);
 
-
-void io_i2c_test(void);
 
 #endif /* __IO_I2C_H__ */

@@ -236,3 +236,4 @@ __attribute__((section(".fast_code"))) void HAL_UART_RxCpltCallback(UART_HandleT
   }
 }
 /* USER CODE END 1 */
+

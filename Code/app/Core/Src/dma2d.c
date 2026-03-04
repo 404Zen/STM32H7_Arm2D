@@ -21,7 +21,16 @@
 #include "dma2d.h"
 
 /* USER CODE BEGIN 0 */
+#include "arm_2d_disp_adapter_0.h" 
+#include <stdint.h>
 
+#define FRAME_BUFFER_ADDR   ((uint16_t *)0x24040000U)
+#define frame_buf           ((volatile uint16_t *)0x24040000)
+
+/* Define the three frame buffer addresses for 3FB mode */
+uintptr_t __DISP_ADAPTER0_3FB_FB0_ADDRESS__ = 0x24040000U;  /* 800*480*2 = 768KB */
+uintptr_t __DISP_ADAPTER0_3FB_FB1_ADDRESS__ = 0x24040000U;  /* Same buffer (single-buffer mode) */
+uintptr_t __DISP_ADAPTER0_3FB_FB2_ADDRESS__ = 0x24040000U;  /* Same buffer (single-buffer mode) */
 /* USER CODE END 0 */
 
 DMA2D_HandleTypeDef hdma2d;
@@ -57,7 +66,17 @@ void MX_DMA2D_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN DMA2D_Init 2 */
-
+  
+  /* Clear frame buffer at startup */
+  {
+      uint16_t *fb = FRAME_BUFFER_ADDR;
+      uint32_t pixels = 800 * 480;
+      for (uint32_t i = 0; i < pixels; i++) {
+          fb[i] = 0x0000;  /* black */
+      }
+      SCB_CleanDCache_by_Addr((uint32_t *)fb, pixels * 2);
+  }
+  
   /* USER CODE END DMA2D_Init 2 */
 
 }
@@ -96,7 +115,7 @@ void HAL_DMA2D_MspDeInit(DMA2D_HandleTypeDef* dma2dHandle)
 
 /* USER CODE BEGIN 1 */
 // uint32_t
-#define frame_buf       ((volatile uint16_t *)0x24040000)
+
 void DMA2D_fill_screen(void)
 {
 #if 0
@@ -135,4 +154,56 @@ void DMA2D_fill_screen(void)
 	while (DMA2D->CR & DMA2D_CR_START) ;				//	等待传输完成
 #endif
 }
+
+
+int32_t GLCD_DrawBitmap(uint32_t x,
+                        uint32_t y,
+                        uint32_t width,
+                        uint32_t height,
+                        const uint8_t *bitmap)
+{
+    uint32_t dst;
+
+    /* 16‑bit RGB565 时每像素 2 字节；其它色深可在此处添加转换 */
+    dst = (uint32_t)FRAME_BUFFER_ADDR
+          + ((y * __DISP0_CFG_SCEEN_WIDTH__ + x) * 2U);
+
+    /* 用 DMA2D 进行内存拷贝 */
+    if (HAL_DMA2D_Start(&hdma2d,
+                        (uint32_t)bitmap,  /* 源地址 */
+                        dst,               /* 目标地址 */
+                        width,
+                        height) != HAL_OK) {
+        return -1;
+    }
+    HAL_DMA2D_PollForTransfer(&hdma2d, HAL_MAX_DELAY);
+
+    /* DMA2D writes bypass CPU caches - clean the destination region so LTDC
+       (which reads from memory) sees the updated pixels. */
+#if defined (SCB_CleanDCache_by_Addr)
+    {
+        uint32_t len = (uint32_t)width * (uint32_t)height * 2U;
+        SCB_CleanDCache_by_Addr((uint32_t *)dst, len);
+    }
+#endif
+
+    return 0;
+}
+
+__OVERRIDE_WEAK
+void Disp0_DrawBitmap(int16_t x,
+                      int16_t y,
+                      int16_t width,
+                      int16_t height,
+                      const uint8_t *bitmap)
+{
+    /* In 3FB mode, ARM2D writes directly to frame buffer - this should not be called */
+    #if __DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__
+        (void)x; (void)y; (void)width; (void)height; (void)bitmap;
+    #else
+        /* PFB mode: copy tile to frame buffer using DMA2D */
+        GLCD_DrawBitmap(x, y, width, height, bitmap);
+    #endif
+}
 /* USER CODE END 1 */
+

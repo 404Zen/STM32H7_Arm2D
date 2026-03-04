@@ -106,15 +106,226 @@ GRAM (xrw)          : ORIGIN = 0x24040000, LENGTH = 768K
 
 
 
-# ARM2D
+# ARM-2D
 
-### 添加子模块 并 更新所有子模块
+### Add submodules and update all submodules.
 
 ```shell
 git submodule add https://github.com/ARM-software/Arm-2D.git Code/app/Arm-2D
 git submodule add https://github.com/GorgonMeducer/perf_counter.git Code/app/perf_counter
 git submodule update --init --recursive
 ```
+
+### Add cmake for ARM-2D and perf_counter
+
+Create CmakeLists.txt in cmake/arm2d and cmake/perf_counter directories for Arm-2D and perf_counter.
+
+In the top CmakeLists.txt, add above libraries into your project.
+
+```cmake
+add_library(arm2d_includes INTERFACE)
+target_include_directories(arm2d_includes INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/ST/ARM/DSP/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/Arm-2D_Port/config
+)
+
+set(ARM2D_HELPER ON)
+set(ARM2D_LCD_PRINTF ON)
+set(ARM2D_CONTROLS ON)
+
+set(CMSISCORE "${CMAKE_SOURCE_DIR}/Drivers/CMSIS" CACHE STRING "Path to CMSIS Core")
+# set(CMSISCORE "${CMAKE_SOURCE_DIR}/Drivers/CMSIS" CACHE STRING "Path to CMSIS Core" FORCE)
+add_compile_definitions(__PERF_COUNTER__)  
+
+
+add_subdirectory(cmake/perf_counter)
+add_subdirectory(cmake/arm2d)
+
+# Special optization for Arm-2D library
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(ARM2D PRIVATE -O3 -ffast-math -g0)
+else()
+    target_compile_options(ARM2D PRIVATE -O3)
+endif()
+
+target_link_libraries(ARM2D PUBLIC arm2d_includes)
+
+
+# Add linked libraries
+target_link_libraries(${CMAKE_PROJECT_NAME}
+    stm32cubemx
+    # Add user defined libraries
+    ARM2D
+    perf_counter
+)
+```
+
+
+
+### Add DSP Library
+
+Arm-2D depend on DSP Library, so we need add DSP in this project.
+
+~~Install STM32 X-CUBE-ALGOBUILD pack and then selected DSP Library in STM32CubeMX~~(Detail in Problems #3)
+
+**DO NOT** use a folder named **`Middlewares`** for your own CMSIS-DSP library. If you use libraries from STM32CubeMX, the tool may overwrite or delete your custom files in that directory. 
+
+### Add CMSIS-DSP
+
+`git submodule add https://github.com/ARM-software/CMSIS-DSP.git`
+
+
+
+```CMAKE
+add_library(arm2d_includes INTERFACE)
+target_include_directories(arm2d_includes INTERFACE
+    # ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/ST/ARM/DSP/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS-DSP/Include  #include arm_math.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Arm-2D_Port/config
+)
+
+add_subdirectory(CMSIS-DSP)
+
+# Add linked libraries
+target_link_libraries(${CMAKE_PROJECT_NAME}
+    # Add user defined libraries
+    ARM2D
+    CMSISDSP       # DSP runtime for math functions used by ARM2D helper
+    perf_counter
+    stm32cubemx
+)
+```
+
+
+
+### ARM2D Init
+
+add dwt related code
+
+```C
+bool check_dwt_enabled(void)  
+{  
+    // 检查 Debug Exception and Monitor Control Register  
+    uint32_t demcr = CoreDebug->DEMCR;  
+    bool debug_enabled = (demcr & CoreDebug_DEMCR_TRCENA_Msk) != 0;  
+      
+    // 检查 DWT Control Register  
+    uint32_t dwt_ctrl = DWT->CTRL;  
+    bool dwt_enabled = (dwt_ctrl & DWT_CTRL_CYCCNTENA_Msk) != 0;  
+      
+    // printf("DEMCR: 0x%08lX (TRCENA=%s)\r\n",   
+    //        demcr, debug_enabled ? "ON" : "OFF");  
+    // printf("DWT_CTRL: 0x%08lX (CYCCNTENA=%s)\r\n",   
+    //        dwt_ctrl, dwt_enabled ? "ON" : "OFF");  
+      
+    return debug_enabled && dwt_enabled;  
+}
+
+void enable_dwt(void)  
+{  
+    // 启用 Debug Exception and Monitor Control Register  
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;  
+      
+    // 启用 DWT cycle counter  
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;  
+      
+    // 重置计数器  
+    DWT->CYCCNT = 0;  
+      
+    // printf("DWT enabled\r\n");  
+}
+```
+
+
+
+init perf_counmter and ARM2D
+
+```C
+if(check_dwt_enabled() ==  false)
+  {
+    enable_dwt();
+  }
+  perfc_init(true);
+  arm_irq_safe 
+  {
+    arm_2d_init();
+  }
+
+  /* initialize the display adapter 0 service */
+  disp_adapter0_init();
+```
+
+
+
+Call  disp_adapter0_task() in main loop.
+
+```C
+tResult = disp_adapter0_task();
+```
+
+
+
+and do not forget add perf_counter's systick handler in your SysTick_Handler()
+
+```
+void SysTick_Handler(void)
+{
+  /* USER CODE BEGIN SysTick_IRQn 0 */
+
+  /* USER CODE END SysTick_IRQn 0 */
+  HAL_IncTick();
+  /* USER CODE BEGIN SysTick_IRQn 1 */
+  user_code_insert_to_systick_handler();
+  /* USER CODE END SysTick_IRQn 1 */
+}
+```
+
+
+
+On STM32H7B0, we use *LCD Direct Mode*, so __DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__ in arm_2d_disp_adapter_0.h need set to 1
+
+```C
+// <q>Enable the helper service for 3FB (LCD Direct Mode)
+// <i> You can select this option when your LCD controller supports direct mode
+#ifndef __DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__
+#   define __DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__                 1
+#endif
+```
+
+
+
+`IMPL_PFB_ON_DRAW(__pfb_draw_handler)` define the content show in display
+
+```C
+static
+IMPL_PFB_ON_DRAW(__pfb_draw_handler)
+{
+    ARM_2D_PARAM(pTarget);
+    ARM_2D_PARAM(ptTile);
+
+    arm_2d_canvas(ptTile, __top_container) {
+    
+#if __DISP0_CFG_COLOR_SOLUTION__ != 1              /* as long as it is not monochrome */
+        arm_2d_align_centre(__top_container, 100, 100) {
+            draw_round_corner_box(  ptTile,
+                                    &__centre_region,
+                                    GLCD_COLOR_BLACK,
+                                    64);
+        }
+#endif
+
+        busy_wheel2_show(ptTile, bIsNewFrame);
+    }
+
+    arm_2d_op_wait_async(NULL);
+
+    return arm_fsm_rt_cpl;
+}
+```
+
+After that, compile and download execute file to MCU， and then we can see a busy wheel show in LCD.
+
+
 
 
 
@@ -141,6 +352,14 @@ git submodule update --init --recursive
      }
    ```
 
+1. When you select the DSP library in STM32CubeMX’s code generation tool, it does **not** copy the pre-compiled library file (`arm_cortexM7l_math.a`) or the DSP library source files to the user project.
+
+   I'm not sure if this is an intended **feature** or a **bug**. The same problem has **appeared** on both Windows and macOS (tested with STM32CubeMX versions 6.16.0 and 6.17.0).
+   
+   Therefore, the workaround is to **build the CMSIS-DSP library yourself**. You can find the source files on GitHub, or copy them from the STM32CubeMX library installation path.
+
+   >https://github.com/ARM-software/CMSIS-DSP
+
    
 
 
@@ -155,7 +374,7 @@ git submodule update --init --recursive
 
    The output speed of the pins used by the LTDC must be configured to **Very High**; otherwise, screen corruption may occur after a period of operation.
 
-
+3. 
 
 
 
@@ -170,10 +389,11 @@ git submodule update --init --recursive
 
 - [ ] application
   - [x] Uart async ring buffer
-    - [x] Transmit use software ring buffer
-  
+    - [x] Transmit use software ring buffer (It doesn't seem to work very well when sending large amounts of data... 
+      will fix it future if necessary )
+    
     - [x] Receive use DMA circular mode
-  
+    
   - [x] Button
   
   - [ ] ~~LEDs control~~

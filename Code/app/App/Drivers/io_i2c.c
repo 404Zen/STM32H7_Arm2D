@@ -22,7 +22,6 @@ static io_i2c_platform_t platform_ops;
 struct io_i2c_instance_t touch_i2c;
 static struct io_i2c_instance_t *loop_list = NULL;
 
-void test_callback(uint8_t event);
 
 static int io_i2c_time_exceed(uint32_t *start_time, uint32_t *time_out);
 static int io_i2c_state_machine(struct io_i2c_instance_t *instance);
@@ -827,49 +826,3 @@ int io_i2c_read_reg(struct io_i2c_instance_t *instance, uint16_t reg_addr, uint1
     return -100;
 }
 
-// static void io_i2c_start(io_i2c_instance_t *instance)
-// {
-
-// }
-
-static uint32_t i2c_test_start = 0;
-static uint32_t i2c_test_left = 0; // platform_ops.io_i2c_reload_tick * 500;
-uint8_t touch_id[11] = {0};
-
-void io_i2c_test(void)
-{
-    /* Should be 0x39 0x31 0x31 0x00 0x60 0x10 0x20 0x20 0x03 0xE0 0x01 */
-    io_i2c_read_reg(&touch_i2c, 0x8140, 11, touch_id);
-
-    HAL_Delay(100);
-#if 0
-    if(io_i2c_time_exceed(&i2c_test_start, &i2c_test_left) == 0) 
-    {
-
-   
-        i2c_test_start = platform_ops.io_i2c_get_tick();
-        i2c_test_left = platform_ops.io_i2c_reload_tick * 100;
-
-        val = !val;
-        platform_ops.io_i2c_pin_write(instance.sda_port, instance.sda_pin,val);
-        platform_ops.io_i2c_pin_write(instance.scl_port, instance.scl_pin,val);
-    
-        return;
-    }
-#endif
-}
-
-void test_callback(uint8_t event)
-{
-    static uint8_t test_val = 0;
-
-    if(event == 0)
-    {
-        test_val = 0;
-    }
-
-    if(event == 1)
-    {
-        test_val++;
-    }
-}

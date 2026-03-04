@@ -4,3 +4,6 @@
 [submodule "Code/app/perf_counter"]
 	path = Code/app/perf_counter
 	url = https://github.com/GorgonMeducer/perf_counter.git
+[submodule "Code/app/CMSIS-DSP"]
+	path = Code/app/CMSIS-DSP
+	url = https://github.com/ARM-software/CMSIS-DSP.git
