@@ -46,12 +46,12 @@ void MX_LTDC_Init(void)
   hltdc.Init.PCPolarity = LTDC_PCPOLARITY_IPC;
   hltdc.Init.HorizontalSync = 0;
   hltdc.Init.VerticalSync = 0;
-  hltdc.Init.AccumulatedHBP = 80;
-  hltdc.Init.AccumulatedVBP = 40;
-  hltdc.Init.AccumulatedActiveW = 880;
-  hltdc.Init.AccumulatedActiveH = 520;
-  hltdc.Init.TotalWidth = 1080;
-  hltdc.Init.TotalHeigh = 542;
+  hltdc.Init.AccumulatedHBP = 88;
+  hltdc.Init.AccumulatedVBP = 32;
+  hltdc.Init.AccumulatedActiveW = 888;
+  hltdc.Init.AccumulatedActiveH = 512;
+  hltdc.Init.TotalWidth = 928;
+  hltdc.Init.TotalHeigh = 525;
   hltdc.Init.Backcolor.Blue = 0;
   hltdc.Init.Backcolor.Green = 0;
   hltdc.Init.Backcolor.Red = 0;
@@ -79,7 +79,9 @@ void MX_LTDC_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN LTDC_Init 2 */
-
+  __HAL_LTDC_CLEAR_FLAG(&hltdc, LTDC_FLAG_LI | LTDC_FLAG_FU | LTDC_FLAG_TE | LTDC_FLAG_RR);
+  HAL_LTDC_Reload(&hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
+  __HAL_LTDC_ENABLE_IT(&hltdc, LTDC_IT_RR);
   /* USER CODE END LTDC_Init 2 */
 
 }
@@ -99,7 +101,7 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
   */
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
     PeriphClkInitStruct.PLL3.PLL3M = 25;
-    PeriphClkInitStruct.PLL3.PLL3N = 330;
+    PeriphClkInitStruct.PLL3.PLL3N = 300;
     PeriphClkInitStruct.PLL3.PLL3P = 2;
     PeriphClkInitStruct.PLL3.PLL3Q = 2;
     PeriphClkInitStruct.PLL3.PLL3R = 10;
@@ -184,6 +186,9 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef* ltdcHandle)
     GPIO_InitStruct.Alternate = GPIO_AF14_LTDC;
     HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+    /* LTDC interrupt Init */
+    HAL_NVIC_SetPriority(LTDC_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(LTDC_IRQn);
   /* USER CODE BEGIN LTDC_MspInit 1 */
 
   /* USER CODE END LTDC_MspInit 1 */
@@ -235,6 +240,8 @@ void HAL_LTDC_MspDeInit(LTDC_HandleTypeDef* ltdcHandle)
 
     HAL_GPIO_DeInit(GPIOD, GPIO_PIN_10|GPIO_PIN_3);
 
+    /* LTDC interrupt Deinit */
+    HAL_NVIC_DisableIRQ(LTDC_IRQn);
   /* USER CODE BEGIN LTDC_MspDeInit 1 */
 
   /* USER CODE END LTDC_MspDeInit 1 */
@@ -242,6 +249,27 @@ void HAL_LTDC_MspDeInit(LTDC_HandleTypeDef* ltdcHandle)
 }
 
 /* USER CODE BEGIN 1 */
-
+/**
+  * @brief  Reload Event callback.
+  * @param  hltdc  pointer to a LTDC_HandleTypeDef structure that contains
+  *                the configuration information for the LTDC.
+  * @retval None
+  */
+void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
+{
+  if(hltdc->Instance == LTDC)
+  {
+    // if((hltdc->ISR & LTDC_ISR_RRIF) != 0U)
+    if(hltdc->State == HAL_LTDC_STATE_READY)
+    {
+      /* Call function in main.c to update frame buffer for next transfer */
+      // UpdateLayeredBuffer(); 
+      // after frame buffer updated, you need enable the reload interrupt to trigger next reload event
+      __HAL_LTDC_CLEAR_FLAG(hltdc, LTDC_FLAG_LI | LTDC_FLAG_FU | LTDC_FLAG_TE | LTDC_FLAG_RR);
+      HAL_LTDC_Reload(hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
+      __HAL_LTDC_ENABLE_IT(hltdc, LTDC_IT_RR);
+    }
+  }
+}
 /* USER CODE END 1 */
 

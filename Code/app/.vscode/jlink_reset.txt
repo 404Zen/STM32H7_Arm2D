@@ -1,0 +1,14 @@
+usb
+connect STM32H7B0VB
+reset
+Sleep 1000
+halt
+mem32 0x58024540 1
+Sleep 100
+r 0x58024540
+Sleep 100
+w 0x58024540 0xFFFFFFFE
+Sleep 100
+r 0x58024540
+Sleep 100
+exit

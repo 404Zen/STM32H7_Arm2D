@@ -139,7 +139,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  HAL_Delay(100);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -161,7 +161,7 @@ int main(void)
   async_usart_printf(&uart1, "PCLK1 Frequency: %lu Hz\n", HAL_RCC_GetPCLK1Freq());
   async_usart_printf(&uart1, "HCLK Frequency: %lu Hz\n", HAL_RCC_GetHCLKFreq());
 
-  async_usart_printf(&uart1, "Turn LCD Backlight!\r\n");
+  // async_usart_printf(&uart1, "Turn LCD Backlight!\r\n");
   HAL_GPIO_WritePin(LCD_BL_GPIO_Port, LCD_BL_Pin, GPIO_PIN_SET);
 
   // DMA2D_fill_screen();

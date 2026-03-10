@@ -12,6 +12,27 @@
 			"group": "build",
 			"problemMatcher": [],
 			"detail": "CMake 模板 生成 任务"
+		},
+		{
+			"type": "shell",
+			"label": "JLink: Hard Reset After Download",
+			"command": "JLinkExe",
+			"args": [
+				"-device",
+				"STM32H7B0VB",
+				"-if",
+				"SWD",
+				"-speed",
+				"4000",
+				"-CommandFile", 
+				"${workspaceFolder}/.vscode/jlink_reset.txt"
+			],
+			"group": "none",
+			"isBackground": false,
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "silent"
+			}
 		}
 	]
 }

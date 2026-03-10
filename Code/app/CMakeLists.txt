@@ -41,9 +41,34 @@ endif()
 add_executable(${CMAKE_PROJECT_NAME})
 
 add_library(arm2d_includes INTERFACE)
+
+# Option to use prebuilt CMSIS-DSP library instead of building from source
+set(CMSIS_DSP_PREBUILT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMSIS-DSP_prebuilt" CACHE PATH "Path to prebuilt CMSIS-DSP library")
+
+# Check if prebuilt library exists
+if(EXISTS "${CMSIS_DSP_PREBUILT_PATH}/lib/libCMSISDSP.a" AND EXISTS "${CMSIS_DSP_PREBUILT_PATH}/include")
+    # Use prebuilt CMSIS-DSP library
+    message(STATUS "✓ Using prebuilt CMSIS-DSP from: ${CMSIS_DSP_PREBUILT_PATH}")
+    set(CMSISDSP_INCLUDE_PATH "${CMSIS_DSP_PREBUILT_PATH}/include")
+    
+    add_library(CMSISDSP STATIC IMPORTED GLOBAL)
+    set_target_properties(CMSISDSP PROPERTIES
+        IMPORTED_LOCATION "${CMSIS_DSP_PREBUILT_PATH}/lib/libCMSISDSP.a"
+        INTERFACE_INCLUDE_DIRECTORIES "${CMSISDSP_INCLUDE_PATH}"
+        IMPORTED_NO_SONAME ON
+    )
+else()
+    # Build CMSIS-DSP from the submodule with testing disabled
+    message(STATUS "⚠ Prebuilt CMSIS-DSP not found, building from source...")
+    set(CMSISDSP_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMSIS-DSP/Include")
+    set(CMSISDSP_BUILD_TESTING OFF CACHE BOOL "Disable CMSIS-DSP tests" FORCE)
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+    add_subdirectory(CMSIS-DSP)
+endif()
+
 target_include_directories(arm2d_includes INTERFACE
     # ${CMAKE_CURRENT_SOURCE_DIR}/Middlewares/ST/ARM/DSP/Inc
-    ${CMAKE_CURRENT_SOURCE_DIR}/CMSIS-DSP/Include
+    ${CMSISDSP_INCLUDE_PATH}
     ${CMAKE_CURRENT_SOURCE_DIR}/Arm-2D_Port/config
 )
 
@@ -64,9 +89,6 @@ add_compile_definitions(
 add_subdirectory(cmake/stm32cubemx)
 add_subdirectory(cmake/perf_counter)
 add_subdirectory(cmake/arm2d)
-
-# build CMSIS-DSP from the submodule
-add_subdirectory(CMSIS-DSP)
 
 # Special optization for Arm-2D library
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
