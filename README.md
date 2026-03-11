@@ -469,7 +469,7 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
    [build] ld.lld: error: <internal>:(.ARM.exidx+0x8): relocation R_ARM_PREL31 out of range: 1811987350 is not in [-1073741824, 1073741823]
    ```
 
-   **workaround: **discard in link file, maybe not a good idea(**I'm not familiar with this**). then we can place codes in internal flash when it need fast speed.
+   **Workaround: **discard in link file, maybe not a good idea(**I'm not familiar with this**). then we can place codes in internal flash when it need fast speed.
 
    ```ld
    /DISCARD/ :
@@ -486,31 +486,44 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
 
    I'm not sure if this is an intended **feature** or a **bug**. The same problem has **appeared** on both Windows and macOS (tested with STM32CubeMX versions 6.16.0 and 6.17.0).
    
-   **workaround:**Therefore, the workaround is to **build the CMSIS-DSP library yourself**. You can find the source files on GitHub, or copy them from the STM32CubeMX library installation path. 
+   **Solution:** Therefore, the workaround is to **build the CMSIS-DSP library yourself**. You can find the source files on GitHub, or copy them from the STM32CubeMX library installation path. 
 
    > https://github.com/ARM-software/CMSIS-DSP
 
 3. Sometimes, external Flash files fail to download, which will cause a hardfault; the reason is currently unclear. Based on this, on launch.json, i moved the app before the boot, which might help.
 
-   **workaround : ** Nothing can do now.
+   **Workaround : ** Nothing can do now.
 
 4. In the VSCode STM32Cube Build Analyzer (v1.1.0) extension, there appear to be display errors regarding the **ITCM section** (address 0x0000_0000). The extension includes sections such as `.ARM.attributes` and `.symtab` in its usage calculation **which should be excluded**, leading to a reported usage higher than the actual amount. However, the ITCM section usage is **correctly reflected** in the `.map` file.
 
 ​	<img src="assets/image-20260201233005767.png" alt="image-20260201233005767" style="zoom: 67%;" /><img src="assets/image-20260201233026332.png" alt="image-20260201233026332" style="zoom:67%;" />
 
-​	**workaround:** wait for updates.....
+​	**Workaround:** wait for updates.....
 
 5. LCD screen abnormalities
 
-   **workaround:**The output speed of the pins used by the LTDC must be configured to **Very High**; otherwise, screen corruption may occur after a period of operation.
+   **Solution:**  The output speed of the pins used by the LTDC must be configured to **Very High**; otherwise, screen corruption may occur after a period of operation.
 
-6. 下载完成之后，可能会进入 MemFault();
+6. 下载完成之后，可能会进入 MemFault()；怀疑是 SFL 没有清理现场导致的，我尝试修改了一些 SFL 的相关代码，但是没有效果。
+
+   **Workaround:** 在下载完成之后，执行一次复位，launch.json 中添加 preRunCommands 暂时可以绕过这个问题。
+
+   ```json
+   "preRunCommands": [
+                   // reset clr MemMangement Fault
+                   "printf \"Reset MCU after download\\n\"",
+                   "monitor reset",
+                   "monitor sleep 100"
+                   ],
+   ```
 
    
 
-   
+7. 一定概率 boot 的 会卡在 OSPI 初始化阶段
 
-7. 
+   **Solution:** boot 在初始化 OSPI 之前，添加 反初始化 代码确保 OSPI 被正确复位。
+
+8. 
 
 
 

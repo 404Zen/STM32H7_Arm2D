@@ -129,6 +129,7 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 #endif
+  // __BKPT(0);
   User_MPU_Config();
   SCB_EnableICache();		// ICache enable
 	SCB_EnableDCache();		// DCache enable

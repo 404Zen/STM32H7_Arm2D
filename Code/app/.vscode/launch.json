@@ -11,26 +11,33 @@
             "name": "JLink GDB Server",
             "origin": "snippet",
             "cwd": "${workspaceFolder}",
-            // "preBuild": "${command:st-stm32-ide-debug-launch.build}",
+            "preBuild": "${command:st-stm32-ide-debug-launch.build}",
             "serverSpeed": "4000",
-            "runEntry": "Reset_Handler",
+            "runEntry": "main",
             "serverReset": "Type 2: ResetPin",
             // "serverStartupDelay": 200,
             // "serverExe": "gdbserver",
             "verbose": false,
-            "preLaunchTask": "JLink: Hard Reset After Download",
+            "preRunCommands": [
+                // reset clr MemMangement Fault
+                "printf \"Reset MCU after download\\n\"",
+                "monitor reset",
+                "monitor sleep 100"
+                ],
             "imagesAndSymbols": [
                 
                 {
                     // boot
+                    // Do not flash boot image, only load symbols for debug
                     "imageFileName": "${workspaceFolder}/../boot/build/Debug/boot.elf",
+                    // "symbolFileName": "${workspaceFolder}/../boot/build/Debug/boot.elf",
                     "symbolLoadAddress": "0x08000000"
                 },
                 {
-                    "imageFileName": "${command:st-stm32-ide-debug-launch.get-projects-binary-from-context1}"
+                    "imageFileName": "${command:st-stm32-ide-debug-launch.get-projects-binary-from-context1}",
                     // app
                     // "imageFileName": "${workspaceFolder}/../app/build/Debug/app.elf",
-                    // "symbolLoadAddress": "0x90000000"
+                    "symbolLoadAddress": "0x90000000"
                 },
             ],
         }

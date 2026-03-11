@@ -38,9 +38,20 @@ pFunction JumpToApplication;
 #define BOOT_DEBUG_ENABLE               1
 
 #if BOOT_DEBUG_ENABLE
-    #define BOOT_DEBUG(...)              usart1_printf(__VA_ARGS__)
+  #define BOOT_DEBUG_STR(message)      usart1_write_str(message)
+  #define BOOT_DEBUG_HEX32(prefix, value)       \
+    do {                                       \
+      usart1_write_str(prefix);              \
+      usart1_write_hex32((uint32_t)(value)); \
+      usart1_write_str("\r\n");             \
+    } while (0)
 #else
-    #define BOOT_DEBUG(...)              (void)0
+  #define BOOT_DEBUG_STR(message)      ((void)(message))
+  #define BOOT_DEBUG_HEX32(prefix, value)       \
+    do {                                       \
+      (void)(prefix);                        \
+      (void)(value);                         \
+    } while (0)
 #endif
 
 #define EXT_FLASH_START_ADDRESS           0x90000000
@@ -105,25 +116,27 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_OCTOSPI1_Init();
+#if BOOT_DEBUG_ENABLE
   MX_USART1_UART_Init();
+#endif
   /* USER CODE BEGIN 2 */
-  BOOT_DEBUG("STM32H7B0 boot\r\n");
-  BOOT_DEBUG("Compiled at %s %s\r\n", __DATE__, __TIME__);
+  BOOT_DEBUG_STR("STM32H7B0 boot\r\n");
+  BOOT_DEBUG_STR("Compiled at " __DATE__ " " __TIME__ "\r\n");
 
   ext_flash_id = OSPI_Get_FlashID();
   if(ext_flash_id != 0)
   {
-    BOOT_DEBUG("External Flash ID: 0x%08lX\r\n", ext_flash_id);
+    // BOOT_DEBUG("External Flash ID: 0x%08lX\r\n", ext_flash_id);
     ext_flash_mapped_ok = OSPI_ExtFlash_Mapped();
     /* map ok = 0 */
     if(ext_flash_mapped_ok == 0)
     {
-      BOOT_DEBUG("External Flash mapped to 0x90000000\r\n");
+      // BOOT_DEBUG("External Flash mapped to 0x90000000\r\n");
       blink_time = 100;
     }
     else 
     {
-      BOOT_DEBUG("External Flash mapping failed\r\n");
+      BOOT_DEBUG_STR("External Flash mapping failed\r\n");
     }
   }
   /* USER CODE END 2 */
@@ -142,8 +155,8 @@ int main(void)
   /* Get applicatuon jump address */
   JumpToApplication = (pFunction) (*((uint32_t *)(EXT_FLASH_START_ADDRESS+4)));
   
-  BOOT_DEBUG("Set MSP to 0x%08lX\r\n", *(uint32_t *)EXT_FLASH_START_ADDRESS);
-  BOOT_DEBUG("Jump to application at 0x%08lX\r\n", (uint32_t)JumpToApplication);
+  // BOOT_DEBUG("Set MSP to 0x%08lX\r\n", *(uint32_t *)EXT_FLASH_START_ADDRESS);
+  BOOT_DEBUG_HEX32("Jump to application at ", JumpToApplication);
   __set_MSP(*(uint32_t *)EXT_FLASH_START_ADDRESS);
   
 

@@ -136,22 +136,49 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
-char strbuf[256];
-void usart1_printf(const char *__format, ...)
+static uint16_t usart1_strlen(const char *str)
 {
-  uint16_t i = 0;
-  va_list list;
+  uint16_t len = 0;
 
-  for (i = 0; i < 256; i++) 
+  if (str == NULL)
   {
-    strbuf[i] = 0;
+    return 0;
   }
-  va_start(list, __format);
-  vsprintf(strbuf, __format, list);
 
-  HAL_UART_Transmit(&huart1, (uint8_t *)strbuf, strlen(strbuf), HAL_MAX_DELAY);
+  while (str[len] != '\0')
+  {
+    len++;
+  }
 
-  va_end(list);
-  
+  return len;
+}
+
+void usart1_write_str(const char *str)
+{
+  uint16_t len = usart1_strlen(str);
+
+  if (len == 0U)
+  {
+    return;
+  }
+
+  HAL_UART_Transmit(&huart1, (uint8_t *)str, len, HAL_MAX_DELAY);
+}
+
+void usart1_write_hex32(uint32_t value)
+{
+  static const char hex_digits[] = "0123456789ABCDEF";
+  char buffer[10];
+  uint32_t index;
+
+  buffer[0] = '0';
+  buffer[1] = 'x';
+
+  for (index = 0; index < 8U; index++)
+  {
+    buffer[index + 2U] = hex_digits[(value >> ((7U - index) * 4U)) & 0xFU];
+  }
+
+  HAL_UART_Transmit(&huart1, (uint8_t *)buffer, sizeof(buffer), HAL_MAX_DELAY);
 }
 /* USER CODE END 1 */
