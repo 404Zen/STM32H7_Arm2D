@@ -224,6 +224,11 @@ SECTIONS
   PROVIDE( __arm32_tls_tcb_offset = MAX(8, __tls_align) );
   PROVIDE( __arm64_tls_tcb_offset = MAX(16, __tls_align) );
 
+  .bss.noinit.arm_2d_pfb_pool (NOLOAD) :
+  {
+    *(.bss.noinit.arm_2d_pfb_pool)
+  } > RAM  /* 根据你的内存名称修改 */
+  
   .bss (NOLOAD) : ALIGN(4)
   {
     *(.bss)

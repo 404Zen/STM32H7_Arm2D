@@ -431,7 +431,110 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
 
 ***GRAM : 指的是在 SRAM 中划分出的一块专们给 LCD 所使用的空间。**
 
+
+
 ## DMA2D
+
+DMA2D 主要有三个函数：
+
+```c
+HAL_StatusTypeDef HAL_DMA2D_Start(DMA2D_HandleTypeDef *hdma2d, uint32_t pdata, uint32_t DstAddress, uint32_t Width,
+                                  uint32_t Height);
+HAL_StatusTypeDef HAL_DMA2D_BlendingStart(DMA2D_HandleTypeDef *hdma2d, uint32_t SrcAddress1, uint32_t SrcAddress2,
+                                          uint32_t DstAddress, uint32_t Width,  uint32_t Height);
+HAL_StatusTypeDef HAL_DMA2D_CLUTStartLoad(DMA2D_HandleTypeDef *hdma2d, const DMA2D_CLUTCfgTypeDef *CLUTCfg,
+                                          uint32_t LayerIdx);                                          
+```
+
+首先要知道的是，DMA2D 所操作的地址，都是 SRAM 中的内存地址；一个完整的流程是，DMA2D 将 GRAM 中的数据进行修改，然后 LTDC 将 GRAM 传输到屏幕上；当 LTDC 完成一整屏的传输之后，会产生一个 Reload Event（也就是前面提到的消隐时间），这个时间之内，LTDC 不会传输任何数据；此时，我们再使用 DMA2D 对 GRAM 中的数据进行修改；等待 LTDC 下一次开始传输的时候，屏幕上就可以显示新的内容了。实际上，并非强制要求 DMA2D 一定要在消隐时间内对屏幕数据进行传输，但是这样可能会产生图像撕裂的现象，在实际应用中最好予以避免。
+
+
+
+那么回到这三个函数，这三个函数的最终目的都是一样的，就是修改 GRAM 中的内容；
+
+**HAL_DMA2D_Start** 有两个模式，一个是寄存器模式，寄存器模式下，pdata 为需要填充的颜色，DstAddress 则是目标地址；比如说我们要将一块区域填充为红色，那么可以这样写：
+
+```C
+// 用红色填充一个矩形区域
+HAL_DMA2D_Start(&hdma2d, 
+                0xFF0000,                    // 颜色（寄存器模式）
+                (uint32_t)dest_address,      // 目标地址
+                100, 50);                    // 宽度, 高度
+```
+
+另一个模式就是 内存到内存 模式，这个时候可以很方便地把 Flash 中的一张图片直接传输至 GRAM，pdata 此时为 图片的源地址；代码实现如下：
+
+```c
+// 复制一张图片
+HAL_DMA2D_Start(&hdma2d,
+                (uint32_t)src_address,       // 源地址
+                (uint32_t)dest_address,      // 目标地址
+                200, 150);                   // 宽度, 高度
+```
+
+**HAL_DMA2D_BlendingStart** - 图像混合操作，执行**带Alpha混合**的图像合成操作。将两个源图像按照透明度混合后输出到目标。
+
+```
+目标像素 = (前景像素 × 前景Alpha) + (背景像素 × (1 - 前景Alpha))
+```
+
+每个图层的 alpha 通过 `DMA2D_LayerCfgTypeDef` 这个结构体指定，DMA2D 根据参数混合图像之后，再写入 GRAM 中。
+
+
+
+**HAL_DMA2D_CLUTStartLoad** - 颜色查找表加载，将颜色查找表（Color Look-Up Table, CLUT）从内存加载到DMA2D的CLUT存储器中。
+
+CLUT 实际上就是人为定义的一张颜色表格，用于将有限的颜色索引（如4位=16色，8位=256色）映射到真实的RGB颜色；其目的是为了节省内存，加速显示。
+
+直接查看代码比较好理解这个功能。
+
+```c
+// 定义16色调色板
+uint32_t clut_table[16] = {
+    0x000000,  // 黑色
+    0xFF0000,  // 红色
+    0x00FF00,  // 绿色
+    0x0000FF,  // 蓝色
+    // ... 其他颜色
+};
+
+// 配置图层使用CLUT
+hdma2d.LayerCfg[0].InputColorMode = DMA2D_INPUT_A4;  // 4位索引模式
+hdma2d.LayerCfg[0].CLUTColorMode = DMA2D_CCM_8888;   // CLUT为ARGB8888格式
+hdma2d.LayerCfg[0].CLUTSize = 15;                    // CLUT大小-1
+
+// 加载CLUT到图层0
+HAL_DMA2D_CLUTStartLoad(&hdma2d, 
+    (uint32_t*)clut_table,  // CLUT表地址
+    0,                     // 图层索引
+    16);                   // CLUT颜色数量
+
+// 等待加载完成
+HAL_DMA2D_PollForTransfer(&hdma2d, 100);
+```
+
+假如我们需要在800×480屏幕上显示256色图标（100×100像素）；使用 RGB565 + DMA2D Start 传输的情况下，我们需要 100\*100\*2 =20,000  字节；
+
+但如果改为使用 CLUT 传输，我们将变成：
+
+	1. 加载 CLUT，256色的 CLUT 占用 1024 字节；
+	1. 传输索引图片，这种情况下，我们仅用 1字节就能表示 256 色；
+
+所以后续每次传输图片的大小都是 100\*100\*1 =10,000 字节，后续的数据量大大缩小。
+
+
+
+## 加速显示
+
+在理解了 LTDC 与 DMA2D 之后，需要修改代码实现，并结合 ARM2D 提高性能。
+
+
+
+### 修正当前代码
+
+当前的 ARM2D 是启用了 3FB 的，这并不符合实际要求，先根据 ARM2D 文档实现单缓冲区的正确显示。
+
+
 
 
 
@@ -522,8 +625,6 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
 7. 一定概率 boot 的 会卡在 OSPI 初始化阶段
 
    **Solution:** boot 在初始化 OSPI 之前，添加 反初始化 代码确保 OSPI 被正确复位。
-
-8. 
 
 
 

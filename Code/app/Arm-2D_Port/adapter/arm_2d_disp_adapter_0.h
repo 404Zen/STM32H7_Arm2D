@@ -96,7 +96,7 @@ extern "C" {
 // <o>Width of the PFB block
 // <i> The width of your PFB block size used in disp0
 #ifndef __DISP0_CFG_PFB_BLOCK_WIDTH__
-#   define __DISP0_CFG_PFB_BLOCK_WIDTH__                           240
+#   define __DISP0_CFG_PFB_BLOCK_WIDTH__                           800
 #endif
 
 // <o>Height of the PFB block
@@ -136,7 +136,7 @@ extern "C" {
 // <o>PFB Block Count <1-65535>
 // <i> The number of blocks in the PFB pool.
 #ifndef __DISP0_CFG_PFB_HEAP_SIZE__
-#   define __DISP0_CFG_PFB_HEAP_SIZE__                             2
+#   define __DISP0_CFG_PFB_HEAP_SIZE__                             1
 #endif
 
 // <q>Disable Dynamic PFB optimization
@@ -231,7 +231,7 @@ extern "C" {
 // <q>Enable the helper service for 3FB (LCD Direct Mode)
 // <i> You can select this option when your LCD controller supports direct mode
 #ifndef __DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__
-#   define __DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__                 1
+#   define __DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__                 0
 #endif
 
 // <q>Disable the default scene

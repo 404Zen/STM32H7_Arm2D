@@ -114,11 +114,64 @@ void HAL_DMA2D_MspDeInit(DMA2D_HandleTypeDef* dma2dHandle)
 }
 
 /* USER CODE BEGIN 1 */
-// uint32_t
+#if 0
+uint16_t __attribute__((section(".sram_bss"))) test_buf[200*100];
+void DMA2D_Test(void)
+{
+  int screen_width = 800;
+  int rect_width = 200;
+  int rect_height = 100;
+
+  for(uint32_t i = 0; i < rect_width * rect_height; i++)
+  {
+    test_buf[i] = 0xF800; // Red color in RGB565
+  }
+
+#if 1
+  GLCD_DrawBitmap(20, 50, 100, 50, (const uint8_t *)test_buf);
+#else
+  // 在800×480屏幕上更新200×100的矩形，起始位置(100,50)
+  
+
+
+  
+  hdma2d.Init.Mode = DMA2D_M2M;  // 内存到内存模式
+  hdma2d.Init.ColorMode = DMA2D_OUTPUT_RGB565;
+  hdma2d.Init.OutputOffset = screen_width - rect_width;  // 输出行偏移设置为屏幕宽度减去矩形宽度
+  hdma2d.Init.LineOffsetMode = DMA2D_LOM_PIXELS; // 行偏移以像素为单位
+  hdma2d.Init.AlphaInverted = DMA2D_REGULAR_ALPHA;  // Alpha不反转
+  hdma2d.Init.RedBlueSwap = DMA2D_RB_REGULAR;       // 不交换红蓝
+  hdma2d.Init.BytesSwap = DMA2D_BYTES_REGULAR;      // 不交换字节
+  HAL_DMA2D_Init(&hdma2d);
+
+  // hdma2d.LayerCfg[0].InputOffset = 0;  // 源图像没有行间隔
+  // hdma2d.LayerCfg[0].InputColorMode = DMA2D_INPUT_RGB565;  // 源格式
+  // hdma2d.LayerCfg[0].AlphaMode = DMA2D_NO_MODIF_ALPHA;     // 不修改Alpha
+  // hdma2d.LayerCfg[0].InputAlpha = 0xFF;                    // 不透明
+  // HAL_DMA2D_ConfigLayer(&hdma2d, 0); // 配置
+
+
+
+  if (HAL_DMA2D_Start(&hdma2d,
+                        (uint32_t)test_buf,
+                        (uint32_t)(&frame_buf[50 * screen_width + 100]), // 计算目标地址
+                        rect_width,
+                        rect_height) != HAL_OK)
+    {
+        dma2d_printf("Error, dma2d start failed\r\n");
+    }
+
+  if(HAL_DMA2D_PollForTransfer(&hdma2d, HAL_MAX_DELAY) != HAL_OK)
+  {
+    dma2d_printf("Error, transfer failed\r\n");
+  }
+#endif
+}
+#endif
 
 void DMA2D_fill_screen(void)
 {
-#if 0
+#if 1
   uint32_t  i;
     volatile uint16_t *ptr_frame_buf;
 
@@ -162,24 +215,36 @@ int32_t GLCD_DrawBitmap(uint32_t x,
                         uint32_t height,
                         const uint8_t *bitmap)
 {
-    uint32_t dst;
 
-    /* 16‑bit RGB565 时每像素 2 字节；其它色深可在此处添加转换 */
-    dst = (uint32_t)FRAME_BUFFER_ADDR
-          + ((y * __DISP0_CFG_SCEEN_WIDTH__ + x) * 2U);
+  uint32_t output_offset = __DISP0_CFG_SCEEN_WIDTH__ - width; // 计算行偏移，单位为像素
+   uint32_t dst;
 
-    /* 用 DMA2D 进行内存拷贝 */
-    if (HAL_DMA2D_Start(&hdma2d,
-                        (uint32_t)bitmap,  /* 源地址 */
-                        dst,               /* 目标地址 */
+  // dst = (uint32_t)FRAME_BUFFER_ADDR + ((y * __DISP0_CFG_SCEEN_WIDTH__ + x));
+  // dst = &frame_buf[y * __DISP0_CFG_SCEEN_WIDTH__ + x];
+
+  hdma2d.Init.Mode = DMA2D_M2M;  // 内存到内存模式
+  hdma2d.Init.ColorMode = DMA2D_OUTPUT_RGB565;
+  hdma2d.Init.OutputOffset = output_offset;  // 输出行偏移设置为屏幕宽度减去矩形宽度
+  hdma2d.Init.LineOffsetMode = DMA2D_LOM_PIXELS; // 行偏移以像素为单位
+  hdma2d.Init.AlphaInverted = DMA2D_REGULAR_ALPHA;  // Alpha不反转
+  hdma2d.Init.RedBlueSwap = DMA2D_RB_REGULAR;       // 不交换红蓝
+  hdma2d.Init.BytesSwap = DMA2D_BYTES_REGULAR;      // 不交换字节
+  HAL_DMA2D_Init(&hdma2d);
+
+  if (HAL_DMA2D_Start(&hdma2d,
+                        (uint32_t)(bitmap),
+                        (uint32_t)(&frame_buf[y * __DISP0_CFG_SCEEN_WIDTH__ + x]), // 计算目标地址
                         width,
-                        height) != HAL_OK) {
-        return -1;
-    }
-    HAL_DMA2D_PollForTransfer(&hdma2d, HAL_MAX_DELAY);
+                        height) != HAL_OK)
+  {
+      dma2d_printf("Error, dma2d start failed\r\n");
+  }
 
-    /* DMA2D writes bypass CPU caches - clean the destination region so LTDC
-       (which reads from memory) sees the updated pixels. */
+  if(HAL_DMA2D_PollForTransfer(&hdma2d, HAL_MAX_DELAY) != HAL_OK)
+  {
+    dma2d_printf("Error, transfer failed\r\n");
+  }
+
 #if defined (SCB_CleanDCache_by_Addr)
     {
         uint32_t len = (uint32_t)width * (uint32_t)height * 2U;

@@ -31,6 +31,7 @@ void MX_OCTOSPI1_Init(void)
 {
 
   /* USER CODE BEGIN OCTOSPI1_Init 0 */
+  hospi1.Instance = OCTOSPI1;
   HAL_OSPI_Abort(&hospi1); 
   HAL_OSPI_DeInit(&hospi1);
   /* USER CODE END OCTOSPI1_Init 0 */

@@ -150,6 +150,9 @@ int main(void)
   MX_LTDC_Init();
   MX_DMA2D_Init();
   /* USER CODE BEGIN 2 */
+  // DMA2D_fill_screen();
+  // DMA2D_Test();
+  // while(1);
 
   KeyInit();
 
@@ -189,6 +192,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   start_tick = HAL_GetTick();
+  
   while (1)
   {
     /* USER CODE END WHILE */
