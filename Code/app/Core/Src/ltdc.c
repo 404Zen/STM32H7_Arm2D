@@ -21,7 +21,7 @@
 #include "ltdc.h"
 
 /* USER CODE BEGIN 0 */
-
+#include "dma2d.h"
 /* USER CODE END 0 */
 
 LTDC_HandleTypeDef hltdc;

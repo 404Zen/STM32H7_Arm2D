@@ -14,5 +14,10 @@
     ],
     "files.associations": {
         "*.h": "c"
+    },
+    "search.exclude": {
+        "Arm-2D/examples" : true,
+        "Arm-2D/README.md" : true,
+        "Arm-2D/documentation/how_to_deploy_the_arm_2d_library.md" : true
     }
 }
