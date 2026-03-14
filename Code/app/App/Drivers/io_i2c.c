@@ -19,6 +19,8 @@
 
 static io_i2c_platform_t platform_ops;
 
+#define IO_I2C_MAX_SM_STEPS_PER_CALL    20000U
+
 struct io_i2c_instance_t touch_i2c;
 static struct io_i2c_instance_t *loop_list = NULL;
 
@@ -76,6 +78,7 @@ int io_i2c_instance_register(struct io_i2c_instance_t *instance)
 void io_i2c_loop_task(void)
 {
     struct io_i2c_instance_t *list = loop_list;
+    uint16_t step;
 
     while(list != NULL)
     {
@@ -87,7 +90,15 @@ void io_i2c_loop_task(void)
 
             case IO_I2C_READ:
             case IO_I2C_WRITE:
-                io_i2c_state_machine(list);
+                for(step = 0; step < IO_I2C_MAX_SM_STEPS_PER_CALL; step++)
+                {
+                    io_i2c_state_machine(list);
+
+                    if((list->state == IO_I2C_IDLE) || (list->state == IO_I2C_ERROR))
+                    {
+                        break;
+                    }
+                }
                 break;
                 
             case IO_I2C_ERROR:

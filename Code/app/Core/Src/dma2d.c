@@ -24,13 +24,30 @@
 #include "arm_2d_disp_adapter_0.h" 
 #include <stdint.h>
 
-#define FRAME_BUFFER_ADDR   ((uint16_t *)0x24040000U)
-#define frame_buf           ((volatile uint16_t *)0x24040000)
+#define FRAME_BUFFER_ADDR   ((uint16_t *)0x24044800U)
+#define frame_buf           ((volatile uint16_t *)0x24044800)
 
 /* Define the three frame buffer addresses for 3FB mode */
-uintptr_t __DISP_ADAPTER0_3FB_FB0_ADDRESS__ = 0x24040000U;  /* 800*480*2 = 768KB */
-uintptr_t __DISP_ADAPTER0_3FB_FB1_ADDRESS__ = 0x24040000U;  /* Same buffer (single-buffer mode) */
-uintptr_t __DISP_ADAPTER0_3FB_FB2_ADDRESS__ = 0x24040000U;  /* Same buffer (single-buffer mode) */
+uintptr_t __DISP_ADAPTER0_3FB_FB0_ADDRESS__ = 0x24044800U;  /* 800*480*2 = 750KB */
+uintptr_t __DISP_ADAPTER0_3FB_FB1_ADDRESS__ = 0x24044800U;  /* Same buffer (single-buffer mode) */
+uintptr_t __DISP_ADAPTER0_3FB_FB2_ADDRESS__ = 0x24044800U;  /* Same buffer (single-buffer mode) */
+
+static void __disp0_dma2d_xfer_cplt_cb(DMA2D_HandleTypeDef *hdma2d);
+static void __disp0_dma2d_xfer_error_cb(DMA2D_HandleTypeDef *hdma2d);
+static void __disp0_try_start_pending_flush(void);
+
+typedef struct {
+  int16_t iX;
+  int16_t iY;
+  int16_t iWidth;
+  int16_t iHeight;
+  const COLOUR_INT *pBuffer;
+} disp0_async_flush_req_t;
+
+static volatile bool s_disp0_rr_window_open;
+static volatile bool s_disp0_async_pending;
+static volatile bool s_disp0_async_busy;
+static disp0_async_flush_req_t s_tDisp0AsyncReq;
 /* USER CODE END 0 */
 
 DMA2D_HandleTypeDef hdma2d;
@@ -66,6 +83,12 @@ void MX_DMA2D_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN DMA2D_Init 2 */
+  hdma2d.XferCpltCallback = __disp0_dma2d_xfer_cplt_cb;
+  hdma2d.XferErrorCallback = __disp0_dma2d_xfer_error_cb;
+
+  s_disp0_rr_window_open = false;
+  s_disp0_async_pending = false;
+  s_disp0_async_busy = false;
   
   /* Clear frame buffer at startup */
   {
@@ -91,6 +114,9 @@ void HAL_DMA2D_MspInit(DMA2D_HandleTypeDef* dma2dHandle)
   /* USER CODE END DMA2D_MspInit 0 */
     /* DMA2D clock enable */
     __HAL_RCC_DMA2D_CLK_ENABLE();
+
+    HAL_NVIC_SetPriority(DMA2D_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA2D_IRQn);
   /* USER CODE BEGIN DMA2D_MspInit 1 */
 
   /* USER CODE END DMA2D_MspInit 1 */
@@ -107,6 +133,8 @@ void HAL_DMA2D_MspDeInit(DMA2D_HandleTypeDef* dma2dHandle)
   /* USER CODE END DMA2D_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_DMA2D_CLK_DISABLE();
+
+    HAL_NVIC_DisableIRQ(DMA2D_IRQn);
   /* USER CODE BEGIN DMA2D_MspDeInit 1 */
 
   /* USER CODE END DMA2D_MspDeInit 1 */
@@ -185,7 +213,7 @@ void DMA2D_fill_screen(void)
 	DMA2D->CR		=	DMA2D_R2M;							//	寄存器到SDRAM
 	DMA2D->OPFCCR	=	LTDC_PIXEL_FORMAT_RGB565;						//	设置颜色格式
 	DMA2D->OOR		=	0;										//	设置行偏移 
-	DMA2D->OMAR		=	0x24040000 ;				// 地址
+  DMA2D->OMAR		=	0x24044800 ;				// 地址
 	DMA2D->NLR		=	(800<<16)|(480);	//	设定长度和宽度
 	DMA2D->OCOLR	=	0xF100;						//	颜色
 	
@@ -255,6 +283,94 @@ void Disp0_DrawBitmap(int16_t x,
   }
   #endif
 
+#endif
+}
+
+void __disp_adapter0_request_async_flushing(   
+    void *pTarget,  
+    bool bIsNewFrame,  
+    int16_t iX,   
+    int16_t iY,  
+    int16_t iWidth,  
+    int16_t iHeight,  
+    const COLOUR_INT *pBuffer)
+{
+  ARM_2D_UNUSED(pTarget);
+  ARM_2D_UNUSED(bIsNewFrame);
+
+  s_tDisp0AsyncReq.iX = iX;
+  s_tDisp0AsyncReq.iY = iY;
+  s_tDisp0AsyncReq.iWidth = iWidth;
+  s_tDisp0AsyncReq.iHeight = iHeight;
+  s_tDisp0AsyncReq.pBuffer = pBuffer;
+  s_disp0_async_pending = true;
+
+  __disp0_try_start_pending_flush();
+}
+
+void Disp0_OnVBlank(void)
+{
+#if __DISP0_CFG_ENABLE_ASYNC_FLUSHING__
+  s_disp0_rr_window_open = true;
+  __disp0_try_start_pending_flush();
+#endif
+}
+
+static void __disp0_try_start_pending_flush(void)
+{
+#if __DISP0_CFG_ENABLE_ASYNC_FLUSHING__
+  uint32_t output_offset;
+  disp0_async_flush_req_t tReq;
+
+  if ((!s_disp0_rr_window_open) || (!s_disp0_async_pending) || s_disp0_async_busy) {
+    return;
+  }
+
+  tReq = s_tDisp0AsyncReq;
+  s_disp0_async_pending = false;
+  s_disp0_rr_window_open = false;
+  s_disp0_async_busy = true;
+
+  output_offset = __DISP0_CFG_SCEEN_WIDTH__ - tReq.iWidth;
+
+  hdma2d.Init.Mode = DMA2D_M2M;
+  hdma2d.Init.ColorMode = DMA2D_OUTPUT_RGB565;
+  hdma2d.Init.OutputOffset = output_offset;
+  hdma2d.Init.LineOffsetMode = DMA2D_LOM_PIXELS;
+  hdma2d.Init.AlphaInverted = DMA2D_REGULAR_ALPHA;
+  hdma2d.Init.RedBlueSwap = DMA2D_RB_REGULAR;
+  hdma2d.Init.BytesSwap = DMA2D_BYTES_REGULAR;
+  HAL_DMA2D_Init(&hdma2d);
+
+  if (HAL_DMA2D_Start_IT(&hdma2d,
+                        (uint32_t)(tReq.pBuffer),
+                        (uint32_t)(&frame_buf[tReq.iY * __DISP0_CFG_SCEEN_WIDTH__ + tReq.iX]),
+                        tReq.iWidth,
+                        tReq.iHeight) != HAL_OK)
+  {
+      s_disp0_async_busy = false;
+      dma2d_printf("Error, dma2d start failed\r\n");
+      disp_adapter0_insert_async_flushing_complete_event_handler();
+  }
+#endif
+}
+
+static void __disp0_dma2d_xfer_cplt_cb(DMA2D_HandleTypeDef *hdma2d)
+{
+  (void)hdma2d;
+  s_disp0_async_busy = false;
+#if __DISP0_CFG_ENABLE_ASYNC_FLUSHING__
+  disp_adapter0_insert_async_flushing_complete_event_handler();
+#endif
+}
+
+static void __disp0_dma2d_xfer_error_cb(DMA2D_HandleTypeDef *hdma2d)
+{
+  (void)hdma2d;
+  s_disp0_async_busy = false;
+#if __DISP0_CFG_ENABLE_ASYNC_FLUSHING__
+  dma2d_printf("Error, dma2d transfer error\r\n");
+  disp_adapter0_insert_async_flushing_complete_event_handler();
 #endif
 }
 /* USER CODE END 1 */

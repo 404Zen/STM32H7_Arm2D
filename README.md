@@ -14,12 +14,14 @@
   0x9000_0000  +---------------------------------------+---------------------------------------+ 0x9000_0000
                |            Reserved/Unused            |            Reserved/Unused            |
   0x2410_0000  +---------------------------------------+---------------------------------------+
-               |             AXI_SRAM3 (384K)          |									   |
-  0x240A_0000  +---------------------------------------+---------------------------------------+
-               |             AXI_SRAM2 (384K)          |									   |
-  0x2404_0000  +---------------------------------------+---------------------------------------+
-               |             AXI_SRAM1 (256K)          |									   |
-  0x2400_0000  +---------------------------------------+---------------------------------------+
+               |             AXI_SRAM3 (384K)          |                                       |
+  0x240A_0000  +---------------------------------------+               GRAM (750K)              |
+               |        AXI_SRAM2 upper (366K)         |                                       |
+  0x2404_4800  +---------------------------------------+---------------------------------------+ 0x2404_4800
+               |        AXI_SRAM2 lower (18K)          |                                       |
+  0x2404_0000  +---------------------------------------+           RAM_NOCACHE (274K)           | 0x2404_0000
+               |             AXI_SRAM1 (256K)          |                                       |
+  0x2400_0000  +---------------------------------------+---------------------------------------+ 0x2400_0000
                |                Reserved               |                                       |
   0x2002_0000  +---------------------------------------+---------------------------------------+
                |             DTCM_RAM (128K)           |                                       |
@@ -63,7 +65,7 @@
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
     _evtor = .; 
-  } >RAM AT> EXT_FLASH
+  } >RAM_NOCACHE AT> EXT_FLASH
 ```
 
 
@@ -95,12 +97,15 @@ LoopCopyVtorInit:
 
 # DMA2D
 
-`480*800*2 = 768000 `~750KB
+`480*800*2 = 768000 bytes`（约 750KB）
 
-RAM split two part, last 768KB use as GRAM.(AXI_SRAM2 & AXI_SRAM3)
+SRAM 划分为两部分：
 
-RAM (xrw)           : ORIGIN = 0x24000000, LENGTH = 256K
-GRAM (xrw)          : ORIGIN = 0x24040000, LENGTH = 768K
+- `RAM_NOCACHE`：用于非缓存数据与部分运行时段；
+- `GRAM`：作为 LCD 帧缓冲区（位于 SRAM 末端 750KB）。
+
+RAM_NOCACHE (xrw)   : ORIGIN = 0x24000000, LENGTH = 274K
+GRAM (xrw)          : ORIGIN = 0x24044800, LENGTH = 750K
 
 
 
@@ -534,7 +539,7 @@ HAL_DMA2D_PollForTransfer(&hdma2d, 100);
 
 当前的 ARM2D 是启用了 3FB 的，这并不符合实际要求，先根据 ARM2D 文档实现单缓冲区的正确显示。
 
-将 `__ARM_2D_HAS_ASYNC__` 设置为 `1`；
+将 `__ARM_2D_HAS_ASYNC__` 设置为 `0`；
 
 `__DISP0_CFG_PFB_BLOCK_WIDTH__` 设置为我们的屏幕宽度 `800`；
 
@@ -588,33 +593,46 @@ void Disp0_DrawBitmap(int16_t x,
 }
 ```
 
-经过上面的修正之后 ，现在的帧率来到了 78 FPS， LCD Latency 则变为 1ms；但是 CPU 占用率飙升至 87.40%；接下来继续优化。
+经过上面的修正之后 ，现在的帧率来到了 91 FPS， LCD Latency 则变为 1ms；但是 CPU 占用率飙升至 84.88%；接下来继续优化。
 
 
 
+### 异步刷新
+
+把 `__DISP0_CFG_ENABLE_ASYNC_FLUSHING__` 打开；然后打开 DMA2D 中断；
+
+对于现在这个工程，异步刷新我们要实现两个事情，一个是在 LTDC 的 Reload 中断中通知 DMA2D 可以去刷屏，另一个是在 DMA2D 传输完成中断中通知 ARM2D 传输完成，这样 ARM2D 就可以进行下一次的渲染。
+
+那么从 ARM2D 渲染完成一个 tile 之后，ARM2D 的 `IMPL_PFB_ON_LOW_LV_RENDERING()` 会尝试将这个 tile 发送到 GRAM，但是此刻可能 LTDC 还没有到消隐时间，所以我们要等待消隐时间到了之后，再对 GRAM 进行修改。
+
+```
+IMPL_PFB_ON_LOW_LV_RENDERING -> __disp_adapter0_request_async_flushing -> __disp0_try_start_pending_flush
+```
+
+我们在 dma2d.c 中对 `__disp_adapter0_request_async_flushing` 和 `__disp0_try_start_pending_flush` 进行了实现。
+
+`__disp_adapter0_request_async_flushing`，该函数负责“记录请求 + 置 pending + 尝试启动。
+
+`__disp0_try_start_pending_flush` 同时被“提交请求”和“VBlank 到来”两边调用；只有满足 `RR window open + pending + DMA空闲` 才会启动 DMA2D 进行传输。
+
+DMA2D 完成后走中断：DMA2D IRQ 进入 HAL，再回调到 `__disp0_dma2d_xfer_cplt_cb / __disp0_dma2d_xfer_error_cb` 最后在回调里调用 `disp_adapter0_insert_async_flushing_complete_event_handler`，由它通知 Arm2D “本次渲染数据发送完成”
+
+LTDC 中断中的 `Disp0_OnVBlank()` 负责对 `s_disp0_rr_window_open` 这把锁进行开锁。
 
 
 
+完成以上之后，我们使用异步，1FB 测试，帧率下降到了 42 FPS， LCD Latency 则变约为 65ms；但是 CPU 占用率下降到了 23.91%，释放了极大一部份性能，并避免了画面撕裂的可能。
 
+#### 多 FB vs 一个大的 FB
 
+根据现在的逻辑推测，多 FB 的性能应该是不如一个 大的 FB 的。
 
+测试数据如下：
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+| config      | FPS  | LCD Latency | CPU loading |
+| ----------- | ---- | ----------- | ----------- |
+| 2 800x48 FB | 50   | ~65ms       | 23.91%      |
+| 1 800x96 FB | 61   | ~28ms       | 33.34%      |
 
 
 

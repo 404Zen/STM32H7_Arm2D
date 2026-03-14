@@ -102,7 +102,7 @@ extern "C" {
 // <o>Height of the PFB block
 // <i> The height of your PFB block size used in disp0
 #ifndef __DISP0_CFG_PFB_BLOCK_HEIGHT__
-#   define __DISP0_CFG_PFB_BLOCK_HEIGHT__                          48
+#   define __DISP0_CFG_PFB_BLOCK_HEIGHT__                          144
 #endif
 
 // <o>Width Alignment of generated PFBs
@@ -225,7 +225,7 @@ extern "C" {
 // <q>Enable the helper service for Asynchronous Flushing
 // <i> Please select this option when using asynchronous flushing, e.g. DMA + ISR 
 #ifndef __DISP0_CFG_ENABLE_ASYNC_FLUSHING__
-#   define __DISP0_CFG_ENABLE_ASYNC_FLUSHING__                     0
+#   define __DISP0_CFG_ENABLE_ASYNC_FLUSHING__                     1
 #endif
 
 // <q>Enable the helper service for 3FB (LCD Direct Mode)

@@ -50,6 +50,7 @@ void MX_DMA2D_Init(void);
 // void DMA2D_Test(void);
 void DMA2D_fill_screen(void);
 void Disp0_DrawBitmap(int16_t x, int16_t y, int16_t width, int16_t height, const uint8_t *bitmap);
+void Disp0_OnVBlank(void);
 /* USER CODE END Prototypes */
 
 #ifdef __cplusplus

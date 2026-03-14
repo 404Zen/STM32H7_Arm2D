@@ -60,9 +60,8 @@ MEMORY
   APP_FAST (rx)       : ORIGIN = 0x08008000, LENGTH = 80K
   RW_DATA (rx)        : ORIGIN = 0x0801C000, LENGTH = 16K
   DTCMRAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 128K
-  RAM (xrw)           : ORIGIN = 0x24000000, LENGTH = 128K
-  RAM_NOCACHE (xrw)   : ORIGIN = 0x24020000, LENGTH = 128K
-  GRAM (xrw)          : ORIGIN = 0x24040000, LENGTH = 768K
+  RAM_NOCACHE (xrw)   : ORIGIN = 0x24000000, LENGTH = 274K
+  GRAM (xrw)          : ORIGIN = 0x24044800, LENGTH = 750K
   EXT_FLASH (rx)      : ORIGIN = 0x90000000, LENGTH = 2048K 
   RO_DATA (rx)        : ORIGIN = 0x90200000, LENGTH = 6144K  
 }
@@ -86,13 +85,13 @@ SECTIONS
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
     _evtor = .; 
-  } >RAM AT> EXT_FLASH
+  } >RAM_NOCACHE AT> EXT_FLASH
 
   .gram (NOLOAD):
   {
     . = ALIGN(4);
     PROVIDE(_sgram = .);
-    . = ORIGIN(GRAM) + 768000; /* LENGTH(GRAM); */
+    . = ORIGIN(GRAM) + LENGTH(GRAM);
     PROVIDE(_egram = .);
     . = ALIGN(4);
   } > GRAM
@@ -227,7 +226,7 @@ SECTIONS
   .bss.noinit.arm_2d_pfb_pool (NOLOAD) :
   {
     *(.bss.noinit.arm_2d_pfb_pool)
-  } > RAM  /* 根据你的内存名称修改 */
+  } > RAM_NOCACHE  /* 根据你的内存名称修改 */
   
   .bss (NOLOAD) : ALIGN(4)
   {
@@ -256,7 +255,7 @@ SECTIONS
     . = ALIGN(4);
     _esram_data = .;
 
-  } >RAM AT> EXT_FLASH
+  } >RAM_NOCACHE AT> EXT_FLASH
 
 
   .sram_bss (NOLOAD) : ALIGN(4)
@@ -269,7 +268,7 @@ SECTIONS
     . = ALIGN(4);
 
     _esram_bss = .;
-  } >RAM
+  } >RAM_NOCACHE
 
   _sisram_noncache_data = LOADADDR(.sram_noncache_data);
   .sram_noncache_data :

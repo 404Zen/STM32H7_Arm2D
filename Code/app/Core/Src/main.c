@@ -28,6 +28,7 @@
 /* USER CODE BEGIN Includes */
 #include "async_uart.h"
 #include "key.h"
+#include <math.h>
 #include <stdint.h>
 #include "io_i2c.h"
 #include "GT9xx_touch.h"
@@ -61,6 +62,8 @@
 /* USER CODE BEGIN PV */
 extern async_uart_instance_t uart1;
 __attribute__((section(".sram_noncache_bss"))) uint8_t uart1_rx_buf[256];
+float disp0_task_usage;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -147,8 +150,9 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART1_UART_Init();
-  MX_LTDC_Init();
   MX_DMA2D_Init();
+  MX_LTDC_Init();
+  
   /* USER CODE BEGIN 2 */
   // DMA2D_fill_screen();
   // DMA2D_Test();
@@ -157,13 +161,13 @@ int main(void)
   KeyInit();
 
   async_uart_init();    // send use sofeware ring buffer
+
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, uart1_rx_buf, 256);
   
   async_usart_printf(&uart1, "\r\n\r\n\r\nApplication Start...\r\n");
   async_usart_printf(&uart1, "Compiled at %s %s\r\n", __DATE__, __TIME__);
-  async_usart_printf(&uart1, "System Core Clock: %lu Hz\n", HAL_RCC_GetSysClockFreq());
-  async_usart_printf(&uart1, "PCLK1 Frequency: %lu Hz\n", HAL_RCC_GetPCLK1Freq());
-  async_usart_printf(&uart1, "HCLK Frequency: %lu Hz\n", HAL_RCC_GetHCLKFreq());
+  async_usart_printf(&uart1, "System Core Clock: %lu Hz\r\n", HAL_RCC_GetSysClockFreq());
+  async_usart_printf(&uart1, "PCLK1 Frequency: %lu Hz\r\n", HAL_RCC_GetPCLK1Freq());
 
   // async_usart_printf(&uart1, "Turn LCD Backlight!\r\n");
   HAL_GPIO_WritePin(LCD_BL_GPIO_Port, LCD_BL_Pin, GPIO_PIN_SET);
@@ -197,19 +201,31 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    tResult = disp_adapter0_task();
-
     io_i2c_loop_task();
     GT911_LoopTask();
+
+    // __cpu_usage__(10, 
+    //   {disp0_task_usage = __usage__;}
+    // )    
+    {
+      tResult = disp_adapter0_task();
+    }
+    
+    /* 调用2次提升触摸响应 */
+    io_i2c_loop_task();
+    GT911_LoopTask();
+
+    vKeySacnTask();
+    KeyFunctionTest();
+
+        
+    
     if(HAL_GetTick() - start_tick >= 500)
     { 
       HAL_GPIO_TogglePin(LED0_GPIO_Port, LED0_Pin);
       HAL_GPIO_TogglePin(TEST_IO_GPIO_Port, TEST_IO_Pin);
       start_tick = HAL_GetTick();
-    }
-    vKeySacnTask();
-    KeyFunctionTest();
-    
+    }    
   }
   /* USER CODE END 3 */
 }
@@ -276,9 +292,6 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-/* defined in linker script */
-extern char _sgram[];
-extern char _egram[];
 void User_MPU_Config(void)
 {
   MPU_Region_InitTypeDef MPU_InitStruct = {0};
@@ -286,53 +299,84 @@ void User_MPU_Config(void)
   /* Disables the MPU */
   HAL_MPU_Disable();
 
-  /** Initializes and configures the Region and the memory to be protected
-  */
   MPU_InitStruct.Enable = MPU_REGION_ENABLE;
+  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
+  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
+  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+
+  /* RAM_NOCACHE [0x24000000, 0x2403FFFF] 256KB */
   MPU_InitStruct.Number = MPU_REGION_NUMBER0;
   MPU_InitStruct.BaseAddress = 0x24000000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_128KB;          
+  MPU_InitStruct.Size = MPU_REGION_SIZE_256KB;
   MPU_InitStruct.SubRegionDisable = 0x00;
-  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
-  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
-  MPU_InitStruct.IsBufferable = MPU_ACCESS_BUFFERABLE;
-
-  HAL_MPU_ConfigRegion(&MPU_InitStruct);
-
-    /** Initializes and configures the Region and the memory to be protected
-  */
-  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
-  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
-  MPU_InitStruct.BaseAddress = 0x24020000;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_128KB;          
-  MPU_InitStruct.SubRegionDisable = 0x00;
-  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
   MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
   MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
-
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
 
-    /** Initializes and configures the Region and the memory to be protected
-  */
-  MPU_InitStruct.Enable = MPU_REGION_ENABLE;
-  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
-  MPU_InitStruct.BaseAddress = (uint32_t)_sgram;
-  MPU_InitStruct.Size = MPU_REGION_SIZE_1MB;          // over SRAM end address, but it is ok, because the left address is reserved.
+  /* RAM_NOCACHE [0x24040000, 0x24043FFF] 16KB */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0x24040000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_16KB;
   MPU_InitStruct.SubRegionDisable = 0x00;
-  MPU_InitStruct.TypeExtField = MPU_TEX_LEVEL0;
-  MPU_InitStruct.AccessPermission = MPU_REGION_FULL_ACCESS;
-  MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_ENABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* RAM_NOCACHE [0x24044000, 0x240447FF] 2KB */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
+  MPU_InitStruct.BaseAddress = 0x24044000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_2KB;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* GRAM [0x24044800, 0x24047FFF] 14KB (16KB region with first 2KB disabled) */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER3;
+  MPU_InitStruct.BaseAddress = 0x24044000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_16KB;
+  MPU_InitStruct.SubRegionDisable = 0x01;
   MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
   MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
-
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* GRAM [0x24048000, 0x2404FFFF] 32KB */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER4;
+  MPU_InitStruct.BaseAddress = 0x24048000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_32KB;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* GRAM [0x24050000, 0x2405FFFF] 64KB */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER5;
+  MPU_InitStruct.BaseAddress = 0x24050000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_64KB;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* GRAM [0x24060000, 0x2407FFFF] 128KB */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER6;
+  MPU_InitStruct.BaseAddress = 0x24060000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_128KB;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /* GRAM [0x24080000, 0x240FFFFF] 512KB */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER7;
+  MPU_InitStruct.BaseAddress = 0x24080000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_512KB;
+  MPU_InitStruct.SubRegionDisable = 0x00;
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE;
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 }

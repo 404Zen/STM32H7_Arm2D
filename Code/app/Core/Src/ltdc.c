@@ -22,6 +22,7 @@
 
 /* USER CODE BEGIN 0 */
 #include "dma2d.h"
+
 /* USER CODE END 0 */
 
 LTDC_HandleTypeDef hltdc;
@@ -68,7 +69,7 @@ void MX_LTDC_Init(void)
   pLayerCfg.Alpha0 = 0;
   pLayerCfg.BlendingFactor1 = LTDC_BLENDING_FACTOR1_CA;
   pLayerCfg.BlendingFactor2 = LTDC_BLENDING_FACTOR2_CA;
-  pLayerCfg.FBStartAdress = 0x24040000;
+  pLayerCfg.FBStartAdress = 0x24044800;
   pLayerCfg.ImageWidth = 800;
   pLayerCfg.ImageHeight = 480;
   pLayerCfg.Backcolor.Blue = 0;
@@ -264,6 +265,7 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
     {
       /* Call function in main.c to update frame buffer for next transfer */
       // UpdateLayeredBuffer(); 
+      Disp0_OnVBlank();
       // after frame buffer updated, you need enable the reload interrupt to trigger next reload event
       __HAL_LTDC_CLEAR_FLAG(hltdc, LTDC_FLAG_LI | LTDC_FLAG_FU | LTDC_FLAG_TE | LTDC_FLAG_RR);
       HAL_LTDC_Reload(hltdc, LTDC_RELOAD_VERTICAL_BLANKING);

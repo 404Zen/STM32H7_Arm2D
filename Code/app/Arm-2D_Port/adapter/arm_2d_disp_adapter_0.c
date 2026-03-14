@@ -19,6 +19,7 @@
 /*============================ INCLUDES ======================================*/
 
 #include "arm_2d_disp_adapter_0.h"
+#include "arm_2d_helper_font.h"
 
 #ifdef RTE_Acceleration_Arm_2D_Helper_Disp_Adapter0
 
@@ -92,6 +93,7 @@
 /*============================ TYPES =========================================*/
 /*============================ GLOBAL VARIABLES ==============================*/
 extern uint32_t SystemCoreClock;
+extern float disp0_task_usage;
 
 /*============================ PROTOTYPES ====================================*/
 extern 
@@ -167,10 +169,21 @@ IMPL_PFB_ON_DRAW(__pfb_draw_handler)
                                     64);
         }
 #endif
+        arm_lcd_text_set_font(&ARM_2D_FONT_16x24.use_as__arm_2d_font_t);
+        arm_lcd_text_set_colour(GLCD_COLOR_BLACK, GLCD_COLOR_BLACK);
+
+        arm_lcd_text_location(0,0);
+        arm_lcd_printf("CPU:%2.2f%% ", DISP0_ADAPTER.Benchmark.fCPUUsage);
+
+        arm_lcd_text_location(1,0);
+        arm_lcd_printf("disp0_task_usage:%2.2f%% ", disp0_task_usage);
+
+
 
         busy_wheel2_show(ptTile, bIsNewFrame);
     }
 
+    
     arm_2d_op_wait_async(NULL);
 
     return arm_fsm_rt_cpl;

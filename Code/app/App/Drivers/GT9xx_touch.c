@@ -19,6 +19,51 @@
 struct io_i2c_instance_t GT911_i2c;
 GT9XX_Touch_Handle_t GT911 = {0};
 
+static bool GT911_IsTouchStateChanged(void)
+{
+    static bool s_is_init = false;
+    static uint8_t s_prev_points_num = 0;
+    static GT9XX_TouchPoint_t s_prev_points[GT9XX_MAX_TOUCH_POINTS] = {0};
+
+    bool changed = false;
+    uint8_t i = 0;
+
+    if(!s_is_init)
+    {
+        changed = true;
+        s_is_init = true;
+    }
+    else if(s_prev_points_num != GT911.vaild_points_num)
+    {
+        changed = true;
+    }
+    else
+    {
+        for(i = 0; i < GT911.vaild_points_num; i++)
+        {
+            if((s_prev_points[i].track_id != GT911.touch_points[i].track_id)
+            || (s_prev_points[i].x != GT911.touch_points[i].x)
+            || (s_prev_points[i].y != GT911.touch_points[i].y)
+            || (s_prev_points[i].size != GT911.touch_points[i].size))
+            {
+                changed = true;
+                break;
+            }
+        }
+    }
+
+    if(changed)
+    {
+        s_prev_points_num = GT911.vaild_points_num;
+        for(i = 0; i < GT911.vaild_points_num; i++)
+        {
+            s_prev_points[i] = GT911.touch_points[i];
+        }
+    }
+
+    return changed;
+}
+
 /**
  * @brief  IOI2C callback function, GT911_LoopTask internal use only.
  * @param[in]  param1 Description of the input parameter
@@ -30,14 +75,17 @@ GT9XX_Touch_Handle_t GT911 = {0};
 
 void GT911_i2c_callback(uint8_t event)
 {
-    
-    if(event == 0)
-    {
-        GT911.i2c_bus_lock = 0;
-    }
-    else 
+    GT911.i2c_bus_lock = 0;
+
+    if(event != 0)
     {
         GT9XX_printf("GT9XX_i2c Error, event = %d\r\n", event);
+        if(GT911.i2c_instance != NULL)
+        {
+            struct io_i2c_instance_t *instance = (struct io_i2c_instance_t *)GT911.i2c_instance;
+            instance->state = IO_I2C_IDLE;
+            instance->ops_param.ops_state = IO_I2C_OPS_IDLE;
+        }
     }
 }
 
@@ -56,6 +104,10 @@ static int GT9XX_I2C_Read(GT9XX_Touch_Handle_t *touch_handle, uint16_t reg_addr,
 {
     touch_handle->i2c_bus_lock = 1;
     int result = io_i2c_read_reg(touch_handle->i2c_instance, reg_addr, len, data);
+    if(result != 0)
+    {
+        touch_handle->i2c_bus_lock = 0;
+    }
     return result;
 }
 
@@ -63,6 +115,10 @@ static int GT9XX_I2C_Write(GT9XX_Touch_Handle_t *touch_handle, uint16_t reg_addr
 {
     touch_handle->i2c_bus_lock = 1;
     int result = io_i2c_write_reg(touch_handle->i2c_instance, reg_addr, len, data);
+    if(result != 0)
+    {
+        touch_handle->i2c_bus_lock = 0;
+    }
     return result;
 }
 
@@ -144,10 +200,17 @@ void GT911_LoopTask(void)
             if(GT911.i2c_bus_lock == 0)
             {
                 GT9XX_printf("GT9XX_M_STATE_READ_ID_CMD\r\n");
-                GT9XX_I2C_Read(&GT911, GT9XX_REG_ID_ADDR, 11, GT911.touch_id);
-
-                start_timer = GetSysTime();
-                GT911.gt9xx_m_state = GT9XX_M_STATE_READ_ID;
+                if(GT9XX_I2C_Read(&GT911, GT9XX_REG_ID_ADDR, 11, GT911.touch_id) == 0)
+                {
+                    start_timer = GetSysTime();
+                    GT911.gt9xx_m_state = GT9XX_M_STATE_READ_ID;
+                }
+                else
+                {
+                    GT9XX_printf("GT9XX_M_STATE_READ_ID_CMD submit failed, reset device!!!\r\n");
+                    start_timer = GetSysTime();
+                    GT911.gt9xx_m_state = GT9XX_M_STATE_PWR_ON;
+                }
             }
             else if(SysTimeExceed(start_timer, GT9XX_I2C_TIMEOUT_MS) == TIME_IS_ARRIVED)
             {
@@ -181,11 +244,17 @@ void GT911_LoopTask(void)
             if(GT911.i2c_bus_lock == 0)
             {
                 GT9XX_printf("GT9XX_M_STATE_READ_CFG_CMD\r\n");
-                GT9XX_I2C_Read(&GT911, GT9XX_REG_CFG_VER_ADDR, 1, &GT911.cfg_ver);
-                
-
-                start_timer = GetSysTime();
-                GT911.gt9xx_m_state = GT9XX_M_STATE_READ_CFG;
+                if(GT9XX_I2C_Read(&GT911, GT9XX_REG_CFG_VER_ADDR, 1, &GT911.cfg_ver) == 0)
+                {
+                    start_timer = GetSysTime();
+                    GT911.gt9xx_m_state = GT9XX_M_STATE_READ_CFG;
+                }
+                else
+                {
+                    GT9XX_printf("GT9XX_M_STATE_READ_CFG_CMD submit failed, reset device!!!\r\n");
+                    start_timer = GetSysTime();
+                    GT911.gt9xx_m_state = GT9XX_M_STATE_PWR_ON;
+                }
             }
             else if(SysTimeExceed(start_timer, GT9XX_I2C_TIMEOUT_MS) == TIME_IS_ARRIVED)
             {
@@ -220,10 +289,17 @@ void GT911_LoopTask(void)
         case GT9XX_M_STATE_READ_COORD_CMD:
             if(GT911.i2c_bus_lock == 0)
             {
-                GT9XX_I2C_Read(&GT911, GT9XX_REG_COORD_ADDR, (2+8*GT9XX_MAX_TOUCH_POINTS), (uint8_t *)&(GT911.t_raw_data));
-
-                start_timer = GetSysTime();
-                GT911.gt9xx_m_state = GT9XX_M_STATE_READ_COORD;
+                if(GT9XX_I2C_Read(&GT911, GT9XX_REG_COORD_ADDR, (2+8*GT9XX_MAX_TOUCH_POINTS), (uint8_t *)&(GT911.t_raw_data)) == 0)
+                {
+                    start_timer = GetSysTime();
+                    GT911.gt9xx_m_state = GT9XX_M_STATE_READ_COORD;
+                }
+                else
+                {
+                    GT9XX_printf("GT9XX_M_STATE_READ_COORD_CMD submit failed, reset device!!!\r\n");
+                    start_timer = GetSysTime();
+                    GT911.gt9xx_m_state = GT9XX_M_STATE_PWR_ON;
+                }
             }
             else if(SysTimeExceed(start_timer, GT9XX_I2C_TIMEOUT_MS) == TIME_IS_ARRIVED)
             {
@@ -237,12 +313,19 @@ void GT911_LoopTask(void)
         case GT9XX_M_STATE_READ_COORD:
             if(GT911.i2c_bus_lock == 0)
             {
-                GT911.vaild_points_num = GT911.t_raw_data.status & 0x0F;
+                uint8_t status = GT911.t_raw_data.status;
+                uint8_t touch_points_num = status & 0x0F;
+                bool data_ready = (status & 0x80) == 0x80;
+                bool large_detect = (status & 0x40) == 0x40;
+                static bool s_large_detect_last = false;
 
-                if(( GT911.vaild_points_num >= 1 ) && ( GT911.vaild_points_num <= GT9XX_MAX_TOUCH_POINTS ))
+                GT911.vaild_points_num = 0;
+
+                if(data_ready
+                && (touch_points_num >= 1)
+                && (touch_points_num <= GT9XX_MAX_TOUCH_POINTS))
                 {
-
-                    GT9XX_printf("Touch points: %d\r\n", GT911.vaild_points_num);
+                    GT911.vaild_points_num = touch_points_num;
 
                     for(i = 0; i < GT911.vaild_points_num; i++)
                     {
@@ -250,8 +333,6 @@ void GT911_LoopTask(void)
                         GT911.touch_points[i].x = (GT911.t_raw_data.points[i].x);
                         GT911.touch_points[i].y = (GT911.t_raw_data.points[i].y);
                         GT911.touch_points[i].size = (GT911.t_raw_data.points[i].size);
-                        
-                        GT9XX_printf("ID = %d, X = %d, Y = %d, Size = %d\r\n", GT911.touch_points[i].track_id, GT911.touch_points[i].x, GT911.touch_points[i].y, GT911.touch_points[i].size);
 
                         if(GT911.touch_points[i].x > 800)
                         {
@@ -265,12 +346,23 @@ void GT911_LoopTask(void)
                     // GT9XX_printf("No touch detected\r\n");
                 }
 
-                if((GT911.t_raw_data.status & 0x40) == 0x40)
+                if(GT911_IsTouchStateChanged())
+                {
+                    GT9XX_printf("Touch points: %d\r\n", GT911.vaild_points_num);
+
+                    for(i = 0; i < GT911.vaild_points_num; i++)
+                    {
+                        GT9XX_printf("ID = %d, X = %d, Y = %d, Size = %d\r\n", GT911.touch_points[i].track_id, GT911.touch_points[i].x, GT911.touch_points[i].y, GT911.touch_points[i].size);
+                    }
+                }
+
+                if(large_detect && (!s_large_detect_last))
                 {
                     GT9XX_printf("GT9XX large detect!!!\r\n");
-                    GT911.gt9xx_m_state = GT9XX_M_STATE_ERROR;
                 }
-                else 
+
+                s_large_detect_last = large_detect;
+
                 {
                     start_timer = GetSysTime();
                     GT911.gt9xx_m_state = GT9XX_M_STATE_COORD_CLR_CMD;
@@ -289,10 +381,17 @@ void GT911_LoopTask(void)
             if(GT911.i2c_bus_lock == 0)
             {
                 uint8_t clr_data = 0x00;
-                GT9XX_I2C_Write(&GT911, GT9XX_REG_COORD_ADDR, 1, &clr_data);
-
-                start_timer = GetSysTime();
-                GT911.gt9xx_m_state = GT9XX_M_STATE_READ_COORD_GAP;
+                if(GT9XX_I2C_Write(&GT911, GT9XX_REG_COORD_ADDR, 1, &clr_data) == 0)
+                {
+                    start_timer = GetSysTime();
+                    GT911.gt9xx_m_state = GT9XX_M_STATE_READ_COORD_GAP;
+                }
+                else
+                {
+                    GT9XX_printf("GT9XX_M_STATE_COORD_CLR_CMD submit failed, reset device!!!\r\n");
+                    start_timer = GetSysTime();
+                    GT911.gt9xx_m_state = GT9XX_M_STATE_PWR_ON;
+                }
             }
             else if(SysTimeExceed(start_timer, GT9XX_I2C_TIMEOUT_MS) == TIME_IS_ARRIVED)
             {
