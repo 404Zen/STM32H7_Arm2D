@@ -55,5 +55,5 @@ dkms.conf
 *.dwo
 Code/app/debug_cfg
 .DS_Store
-
+*/.DS_Store
 
