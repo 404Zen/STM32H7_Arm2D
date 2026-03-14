@@ -94,7 +94,7 @@
 /*============================ GLOBAL VARIABLES ==============================*/
 extern uint32_t SystemCoreClock;
 extern float disp0_task_usage;
-
+extern int64_t DMA2DTransTick;
 /*============================ PROTOTYPES ====================================*/
 extern 
 int32_t Disp0_DrawBitmap(int16_t x, 
@@ -169,14 +169,17 @@ IMPL_PFB_ON_DRAW(__pfb_draw_handler)
                                     64);
         }
 #endif
-        arm_lcd_text_set_font(&ARM_2D_FONT_16x24.use_as__arm_2d_font_t);
-        arm_lcd_text_set_colour(GLCD_COLOR_BLACK, GLCD_COLOR_BLACK);
+        // arm_lcd_text_set_font(&ARM_2D_FONT_16x24.use_as__arm_2d_font_t);
+        // arm_lcd_text_set_colour(GLCD_COLOR_BLACK, GLCD_COLOR_BLACK);
 
-        arm_lcd_text_location(0,0);
-        arm_lcd_printf("CPU:%2.2f%% ", DISP0_ADAPTER.Benchmark.fCPUUsage);
+        // arm_lcd_text_location(0,0);
+        // arm_lcd_printf("CPU:%2.2f%% ", DISP0_ADAPTER.Benchmark.fCPUUsage);
 
-        arm_lcd_text_location(1,0);
-        arm_lcd_printf("disp0_task_usage:%2.2f%% ", disp0_task_usage);
+        // arm_lcd_text_location(1,0);
+        // arm_lcd_printf("disp0_task_usage:%2.2f%% ", disp0_task_usage);
+
+        // arm_lcd_text_location(2,0);
+        // arm_lcd_printf("DMA2DTransTimes:%2.2f ms", (float)DMA2DTransTick/280000.0f);
 
 
 

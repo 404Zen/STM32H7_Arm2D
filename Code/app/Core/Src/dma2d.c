@@ -23,6 +23,7 @@
 /* USER CODE BEGIN 0 */
 #include "arm_2d_disp_adapter_0.h" 
 #include <stdint.h>
+#include "perf_counter.h"
 
 #define FRAME_BUFFER_ADDR   ((uint16_t *)0x24044800U)
 #define frame_buf           ((volatile uint16_t *)0x24044800)
@@ -115,6 +116,7 @@ void HAL_DMA2D_MspInit(DMA2D_HandleTypeDef* dma2dHandle)
     /* DMA2D clock enable */
     __HAL_RCC_DMA2D_CLK_ENABLE();
 
+    /* DMA2D interrupt Init */
     HAL_NVIC_SetPriority(DMA2D_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA2D_IRQn);
   /* USER CODE BEGIN DMA2D_MspInit 1 */
@@ -134,6 +136,7 @@ void HAL_DMA2D_MspDeInit(DMA2D_HandleTypeDef* dma2dHandle)
     /* Peripheral clock disable */
     __HAL_RCC_DMA2D_CLK_DISABLE();
 
+    /* DMA2D interrupt Deinit */
     HAL_NVIC_DisableIRQ(DMA2D_IRQn);
   /* USER CODE BEGIN DMA2D_MspDeInit 1 */
 
@@ -355,11 +358,14 @@ static void __disp0_try_start_pending_flush(void)
 #endif
 }
 
+extern int64_t LTDCStart;
+int64_t DMA2DTransTick = 0;
 static void __disp0_dma2d_xfer_cplt_cb(DMA2D_HandleTypeDef *hdma2d)
 {
   (void)hdma2d;
   s_disp0_async_busy = false;
 #if __DISP0_CFG_ENABLE_ASYNC_FLUSHING__
+  DMA2DTransTick = get_system_ticks() - LTDCStart;
   disp_adapter0_insert_async_flushing_complete_event_handler();
 #endif
 }

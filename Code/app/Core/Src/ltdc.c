@@ -22,6 +22,7 @@
 
 /* USER CODE BEGIN 0 */
 #include "dma2d.h"
+#include "perf_counter.h"
 
 /* USER CODE END 0 */
 
@@ -250,6 +251,7 @@ void HAL_LTDC_MspDeInit(LTDC_HandleTypeDef* ltdcHandle)
 }
 
 /* USER CODE BEGIN 1 */
+int64_t LTDCStart = 0;
 /**
   * @brief  Reload Event callback.
   * @param  hltdc  pointer to a LTDC_HandleTypeDef structure that contains
@@ -266,6 +268,7 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
       /* Call function in main.c to update frame buffer for next transfer */
       // UpdateLayeredBuffer(); 
       Disp0_OnVBlank();
+      LTDCStart = get_system_ticks();
       // after frame buffer updated, you need enable the reload interrupt to trigger next reload event
       __HAL_LTDC_CLEAR_FLAG(hltdc, LTDC_FLAG_LI | LTDC_FLAG_FU | LTDC_FLAG_TE | LTDC_FLAG_RR);
       HAL_LTDC_Reload(hltdc, LTDC_RELOAD_VERTICAL_BLANKING);

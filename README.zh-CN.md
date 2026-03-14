@@ -4,15 +4,15 @@
 
 ## Table of Contents / 目录
 
-- [Memory Map](#memory-map)
-- [Copy Vector Table to SRAM](#copy-vector-table-to-sram)
+- [内存映射](#内存映射)
+- [将向量表复制到 SRAM](#将向量表复制到-sram)
 - [DMA2D](#dma2d)
 - [ARM-2D](#arm-2d)
 - [LTDC & DMA2D](#ltdc--dma2d)
-- [Problems & Bugs](#problems--bugs)
-- [TODOs](#todos)
+- [问题与 Bug](#问题与-bug)
+- [TODO](#todo)
 
-## Memory Map
+## 内存映射
 
 ```Plaintext
 	 Address          Memory Structure (Size)                  		Detail Partition               Address
@@ -55,7 +55,7 @@
   0x0000_0000  +---------------------------------------+---------------------------------------+
 ```
 
-## Copy Vector Table to SRAM
+## 将向量表复制到 SRAM
 
 ```ld
 /* The startup code goes first into FLASH */
@@ -92,12 +92,12 @@ bcc CopyVtorInit
 
 # DMA2D
 
-`480*800*2 = 768000 bytes` (~750 KB)
+`480*800*2 = 768000 bytes`（约 750 KB）
 
-SRAM is split into two parts:
+SRAM 划分为两部分：
 
-- `RAM_NOCACHE`: non-cacheable data and some runtime sections.
-- `GRAM`: LCD frame buffer (the final 750 KB in SRAM).
+- `RAM_NOCACHE`：用于非缓存数据和部分运行时段。
+- `GRAM`：作为 LCD 帧缓冲区（位于 SRAM 末端 750KB）。
 
 ```Plaintext
 RAM_NOCACHE (xrw)   : ORIGIN = 0x24000000, LENGTH = 274K
@@ -106,7 +106,7 @@ GRAM (xrw)          : ORIGIN = 0x24044800, LENGTH = 750K
 
 # ARM-2D
 
-### Add submodules and update all submodules
+### 添加子模块并更新所有子模块
 
 ```shell
 git submodule add https://github.com/ARM-software/Arm-2D.git Code/app/Arm-2D
@@ -114,11 +114,11 @@ git submodule add https://github.com/GorgonMeducer/perf_counter.git Code/app/per
 git submodule update --init --recursive
 ```
 
-### Add CMake for ARM-2D and perf_counter
+### 为 ARM-2D 和 perf_counter 添加 CMake
 
-Create `CMakeLists.txt` in `cmake/arm2d` and `cmake/perf_counter` for Arm-2D and perf_counter.
+在 `cmake/arm2d` 和 `cmake/perf_counter` 目录中分别创建 `CMakeLists.txt`。
 
-In the top-level `CMakeLists.txt`, add these libraries to the project:
+在顶层 `CMakeLists.txt` 中将这些库加入工程：
 
 ```cmake
 add_library(arm2d_includes INTERFACE)
@@ -156,15 +156,15 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 )
 ```
 
-### Add DSP Library
+### 添加 DSP 库
 
-Arm-2D depends on the DSP library, so DSP support must be added to this project.
+Arm-2D 依赖 DSP 库，因此项目中必须引入 DSP 支持。
 
-~~Install STM32 X-CUBE-ALGOBUILD pack and then select DSP Library in STM32CubeMX~~ (see Problems #2).
+~~安装 STM32 X-CUBE-ALGOBUILD，并在 STM32CubeMX 中勾选 DSP Library~~（详见“问题与 Bug”第 2 条）。
 
-**DO NOT** put your own CMSIS-DSP library in a folder named **`Middlewares`**. If STM32CubeMX-generated code is used, that tool may overwrite or delete custom files in that directory.
+**不要**把你自己的 CMSIS-DSP 放在名为 **`Middlewares`** 的目录下。如果使用 STM32CubeMX 生成代码，该目录中的自定义文件可能会被覆盖或删除。
 
-### Add CMSIS-DSP
+### 添加 CMSIS-DSP
 
 ```shell
 git submodule add https://github.com/ARM-software/CMSIS-DSP.git
@@ -190,18 +190,18 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
 )
 ```
 
-### ARM2D Initialization
+### ARM2D 初始化
 
-Add DWT-related code:
+添加 DWT 相关代码：
 
 ```c
 bool check_dwt_enabled(void)
 {
-    // Check Debug Exception and Monitor Control Register
+    // 检查 DEMCR（Debug Exception and Monitor Control Register）
     uint32_t demcr = CoreDebug->DEMCR;
     bool debug_enabled = (demcr & CoreDebug_DEMCR_TRCENA_Msk) != 0;
 
-    // Check DWT Control Register
+    // 检查 DWT 控制寄存器
     uint32_t dwt_ctrl = DWT->CTRL;
     bool dwt_enabled = (dwt_ctrl & DWT_CTRL_CYCCNTENA_Msk) != 0;
 
@@ -215,20 +215,20 @@ bool check_dwt_enabled(void)
 
 void enable_dwt(void)
 {
-    // Enable Debug Exception and Monitor Control Register
+    // 使能 DEMCR
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
 
-    // Enable DWT cycle counter
+    // 使能 DWT 周期计数器
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
 
-    // Reset counter
+    // 清零计数器
     DWT->CYCCNT = 0;
 
     // printf("DWT enabled\r\n");
 }
 ```
 
-Initialize `perf_counter` and ARM2D:
+初始化 `perf_counter` 与 ARM2D：
 
 ```c
 if (check_dwt_enabled() == false)
@@ -245,13 +245,13 @@ arm_irq_safe
 disp_adapter0_init();
 ```
 
-Call `disp_adapter0_task()` in the main loop:
+在主循环中调用 `disp_adapter0_task()`：
 
 ```c
 tResult = disp_adapter0_task();
 ```
 
-Do not forget to add perf_counter's systick handler in `SysTick_Handler()`:
+不要忘记在 `SysTick_Handler()` 中加入 perf_counter 的 systick 处理：
 
 ```c
 void SysTick_Handler(void)
@@ -266,7 +266,7 @@ void SysTick_Handler(void)
 }
 ```
 
-On STM32H7B0, *LCD Direct Mode* is used, so set `__DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__` to `1` in `arm_2d_disp_adapter_0.h`:
+在 STM32H7B0 上我们使用 *LCD Direct Mode*，因此在 `arm_2d_disp_adapter_0.h` 中将 `__DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__` 设为 `1`：
 
 ```c
 // <q>Enable the helper service for 3FB (LCD Direct Mode)
@@ -276,9 +276,9 @@ On STM32H7B0, *LCD Direct Mode* is used, so set `__DISP0_CFG_ENABLE_3FB_HELPER_S
 #endif
 ```
 
-> Later, I found that 3FB is actually not suitable for my final configuration.
+> 后续验证发现：3FB 实际并不适合当前最终配置。
 
-`IMPL_PFB_ON_DRAW(__pfb_draw_handler)` defines what is drawn to the display:
+`IMPL_PFB_ON_DRAW(__pfb_draw_handler)` 决定了实际显示内容：
 
 ```c
 static
@@ -307,51 +307,51 @@ IMPL_PFB_ON_DRAW(__pfb_draw_handler)
 }
 ```
 
-After that, compile and download the image to the MCU. A busy wheel should appear on the LCD.
+完成后编译并下载到 MCU，即可在 LCD 上看到 busy wheel。
 
 # LTDC & DMA2D
 
-This section explains LTDC and DMA2D under a constrained single-GRAM setup (Layer0 only).
+本节在单屏 GRAM（只有 Layer0）的约束下说明 LTDC 与 DMA2D 的关系。
 
 ## LTDC
 
-After LTDC is configured, it continuously transfers data from GRAM to the LCD. Therefore, changing data in GRAM changes what is displayed.
+LTDC 配置完成后，会持续将 GRAM 内容搬运到 LCD，因此只要修改 GRAM 数据，显示内容就会改变。
 
-The screen refresh rate is:
+刷新率计算公式：
 
-`Refresh Rate = Pixel Clock / [(Horizontal Total) × (Vertical Total)]`
+`刷新率 = 像素时钟频率 / [(水平总周期) × (垂直总周期)]`
 
-According to the panel datasheet, the typical pixel clock is 30 MHz and the maximum is 50 MHz.
+根据屏幕手册，像素时钟典型值为 30MHz，最大值为 50MHz。
 
-Measured ARM2D benchmark data under current settings:
+当前配置下 ARM2D 测试结果：
 
 | LTDC Clock | FPS | Rendering time | LCD Latency |
 | ---------- | --- | -------------- | ----------- |
 | 30MHz      | 54  | 18ms           | 14ms        |
 | 50MHz      | 54  | 18ms           | 14ms        |
 
-Average frame time is about 18 ms, and LCD latency is about 14 ms, so actual rendering time is ~4 ms.
+平均帧时间约 18ms，LCD 延迟约 14ms，因此渲染耗时约 4ms。
 
-> One open question is why LCD latency did not decrease after increasing LTDC clock to 50 MHz. It may be related to how ARM2D is currently used.
+> 一个未完全解释的问题：LTDC 时钟升到 50MHz 后，LCD Latency 并没有下降，可能与当前 ARM2D 使用方式有关。
 >
-> Based on the calculations below:
+> 按下面计算：
 >
-> - At 30 MHz: up to 61.39 FPS, blanking time = 1.425 ms, full-frame transfer time ≈ 14.86 ms.
-> - At 50 MHz: up to 102.32 FPS, blanking time = 0.855 ms, full-frame transfer time ≈ 8.92 ms.
+> - 30MHz：理论 61.39 FPS，消隐时间 1.425ms，单帧传输约 14.86ms。
+> - 50MHz：理论 102.32 FPS，消隐时间 0.855ms，单帧传输约 8.92ms。
 
-With the current display timing:
+当前屏幕参数：
 
 ```Plaintext
-Horizontal Total = TotalWidth + 1 = 88(HBP) + 800(Active Width) + 40(HFP) + 1 = 928 + 1 = 929
-Vertical Total   = TotalHeight + 1 = 32(VBP) + 480(Active Height) + 13(VFP) + 1 = 525 + 1 = 526
-Refresh Rate     = Pixel Clock / [(Horizontal Total) × (Vertical Total)]
+水平总周期 = TotalWidth + 1 = 88(HBP) + 800(Active Width) + 40(HFP) + 1 = 928 + 1 = 929
+垂直总周期 = TotalHeight + 1 = 32(VBP) + 480(Active Height) + 13(VFP) + 1 = 525 + 1 = 526
+刷新率 = 像素时钟频率 / [(水平总周期) × (垂直总周期)]
 ```
 
-So, for 60 Hz, the LTDC clock needs to be 29.32 MHz. The previous 30 MHz is already sufficient.
+因此实现 60Hz 时，LTDC 时钟只需 29.32MHz，之前的 30MHz 已足够。
 
-`VSYNC + VBP + VFP` determines vertical blanking time. During this period, LTDC does not actively refresh the panel, so GRAM updates are safe.
+`VSYNC + VBP + VFP` 决定垂直消隐时间。该时间段 LTDC 不主动刷新，修改 GRAM 相对安全。
 
-Vertical blanking calculation:
+消隐时间计算：
 
 ```Plaintext
 VBLANKING = VSYNC + VBP + VFP
@@ -365,11 +365,11 @@ when LTDC_CLK = 30MHz
 VBLANKING_TIME = 46 * 929 / 30000000 = 1.4245 mS
 ```
 
-So VBP/VFP can be tuned to adjust blanking time, but that also affects refresh rate.
+所以可以通过调节 VBP/VFP 改变消隐时间，但会同时影响刷新率。
 
-### How to enable vertical blanking interrupt on STM32H7B0
+### 如何开启 STM32H7B0 的消隐中断
 
-For STM32H7B0, the `LTDC_IT_RR` interrupt functions the same as the previously mentioned VSYNC interrupt.
+对于 STM32H7B0，`LTDC_IT_RR` 中断与前面提到的 VSYNC 中断作用一致。
 
 ```c
 __HAL_LTDC_CLEAR_FLAG(&hltdc, LTDC_FLAG_LI | LTDC_FLAG_FU | LTDC_FLAG_TE | LTDC_FLAG_RR);
@@ -377,9 +377,9 @@ HAL_LTDC_Reload(&hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
 __HAL_LTDC_ENABLE_IT(&hltdc, LTDC_IT_RR);
 ```
 
-Note that `HAL_LTDC_IRQHandler()` disables this interrupt, so after rendering data is updated, this interrupt needs to be enabled again manually.
+需要注意：`HAL_LTDC_IRQHandler()` 会关闭这个中断，所以每次完成数据更新后，都要手动再次开启。
 
-**⚠️ Note: data update and interrupt re-enable should be done in the main loop, not in the IRQ callback. It is shown in callback form here only for documentation flow.**
+**⚠️ 注意：数据更新和中断重开应该放在主循环，而不是中断回调。这里放在回调示例只是为了文档逻辑连贯。**
 
 ```c
 void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
@@ -388,10 +388,10 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
   {
     if (hltdc->State == HAL_LTDC_STATE_READY)
     {
-      // Call function in main.c to update frame buffer for next transfer
+      // 在 main.c 中更新下一帧数据
       // UpdateLayeredBuffer();
 
-      // After frame buffer update, re-enable reload interrupt for next blanking event
+      // 更新完成后，重新打开 reload 中断以触发下一次事件
       __HAL_LTDC_CLEAR_FLAG(hltdc, LTDC_FLAG_LI | LTDC_FLAG_FU | LTDC_FLAG_TE | LTDC_FLAG_RR);
       HAL_LTDC_Reload(hltdc, LTDC_RELOAD_VERTICAL_BLANKING);
       __HAL_LTDC_ENABLE_IT(hltdc, LTDC_IT_RR);
@@ -400,11 +400,11 @@ void HAL_LTDC_ReloadEventCallback(LTDC_HandleTypeDef *hltdc)
 }
 ```
 
-\*GRAM is a dedicated region in SRAM reserved for LCD frame-buffer usage.
+\*GRAM：在 SRAM 中划出的一块专用于 LCD 帧缓冲的内存区域。
 
 ## DMA2D
 
-DMA2D mainly uses these three functions:
+DMA2D 主要使用三个函数：
 
 ```c
 HAL_StatusTypeDef HAL_DMA2D_Start(DMA2D_HandleTypeDef *hdma2d, uint32_t pdata, uint32_t DstAddress, uint32_t Width,
@@ -415,109 +415,109 @@ HAL_StatusTypeDef HAL_DMA2D_CLUTStartLoad(DMA2D_HandleTypeDef *hdma2d, const DMA
                                           uint32_t LayerIdx);
 ```
 
-DMA2D always operates on SRAM addresses. A complete display update flow is:
+DMA2D 操作的地址都在 SRAM。完整流程通常是：
 
-1. DMA2D updates data in GRAM.
-2. LTDC transfers GRAM to the LCD.
-3. After a full-frame transfer, LTDC generates a reload event (blanking period).
-4. During blanking, DMA2D can safely update GRAM for the next frame.
+1. DMA2D 修改 GRAM。
+2. LTDC 把 GRAM 刷到 LCD。
+3. LTDC 一屏传输完成后触发 reload event（消隐阶段）。
+4. 在消隐期间再让 DMA2D 写下一帧数据。
 
-DMA2D does not strictly need to update only in blanking, but writing during active scan can cause tearing, so it is better to avoid that in real products.
+DMA2D 并非必须只在消隐期写数据，但在有效显示期写入容易出现撕裂，实战中建议避免。
 
-All three APIs ultimately modify GRAM:
+这三个函数的最终目标都是修改 GRAM：
 
 - `HAL_DMA2D_Start`
 - `HAL_DMA2D_BlendingStart`
 - `HAL_DMA2D_CLUTStartLoad`
 
-`HAL_DMA2D_Start` has two common modes:
+`HAL_DMA2D_Start` 常见两种模式：
 
-- Register mode: `pdata` is a color value and `DstAddress` is destination.
-- Memory-to-memory mode: `pdata` is source address.
+- 寄存器模式：`pdata` 表示颜色值，`DstAddress` 是目标地址。
+- 内存到内存模式：`pdata` 表示源地址。
 
-Fill a rectangle with red (register mode):
-
-```c
-HAL_DMA2D_Start(&hdma2d,
-                0xFF0000,                    // color (register mode)
-                (uint32_t)dest_address,      // destination
-                100, 50);                    // width, height
-```
-
-Copy an image (memory-to-memory mode):
+用红色填充矩形（寄存器模式）：
 
 ```c
 HAL_DMA2D_Start(&hdma2d,
-                (uint32_t)src_address,       // source
-                (uint32_t)dest_address,      // destination
-                200, 150);                   // width, height
+                0xFF0000,                    // 颜色（寄存器模式）
+                (uint32_t)dest_address,      // 目标地址
+                100, 50);                    // 宽, 高
 ```
 
-`HAL_DMA2D_BlendingStart` performs alpha blending between two source images:
+复制一张图片（内存到内存模式）：
+
+```c
+HAL_DMA2D_Start(&hdma2d,
+                (uint32_t)src_address,       // 源地址
+                (uint32_t)dest_address,      // 目标地址
+                200, 150);                   // 宽, 高
+```
+
+`HAL_DMA2D_BlendingStart` 用于带 Alpha 的图像混合：
 
 ```Plaintext
-Destination Pixel = (Foreground Pixel × Foreground Alpha)
-                  + (Background Pixel × (1 - Foreground Alpha))
+目标像素 = (前景像素 × 前景 Alpha)
+         + (背景像素 × (1 - 前景 Alpha))
 ```
 
-Layer alpha parameters are configured by `DMA2D_LayerCfgTypeDef`.
+每层 Alpha 参数通过 `DMA2D_LayerCfgTypeDef` 配置。
 
-`HAL_DMA2D_CLUTStartLoad` loads a color look-up table (CLUT) from memory into DMA2D CLUT storage.
+`HAL_DMA2D_CLUTStartLoad` 用于把颜色查找表（CLUT）从内存加载到 DMA2D 的 CLUT 存储器。
 
-CLUT maps compact color indexes (e.g., 4-bit/8-bit) to actual RGB values, reducing memory bandwidth and memory usage.
+CLUT 的核心用途是将较小位宽的颜色索引（如 4bit/8bit）映射到真实 RGB 颜色，从而减少内存占用和带宽。
 
-Example:
+示例：
 
 ```c
-// Define a 16-color palette
+// 定义 16 色调色板
 uint32_t clut_table[16] = {
-    0x000000,  // black
-    0xFF0000,  // red
-    0x00FF00,  // green
-    0x0000FF,  // blue
-    // ... other colors
+    0x000000,  // 黑色
+    0xFF0000,  // 红色
+    0x00FF00,  // 绿色
+    0x0000FF,  // 蓝色
+    // ... 其他颜色
 };
 
-// Configure layer with CLUT
-hdma2d.LayerCfg[0].InputColorMode = DMA2D_INPUT_A4;  // 4-bit index mode
-hdma2d.LayerCfg[0].CLUTColorMode = DMA2D_CCM_8888;   // CLUT format ARGB8888
-hdma2d.LayerCfg[0].CLUTSize = 15;                    // CLUT size - 1
+// 配置图层使用 CLUT
+hdma2d.LayerCfg[0].InputColorMode = DMA2D_INPUT_A4;  // 4bit 索引模式
+hdma2d.LayerCfg[0].CLUTColorMode = DMA2D_CCM_8888;   // CLUT 格式 ARGB8888
+hdma2d.LayerCfg[0].CLUTSize = 15;                    // CLUT 大小 - 1
 
-// Load CLUT to layer 0
+// 加载 CLUT 到 layer 0
 HAL_DMA2D_CLUTStartLoad(&hdma2d,
-    (uint32_t*)clut_table,  // CLUT table address
-    0,                      // layer index
-    16);                    // CLUT color count
+    (uint32_t*)clut_table,  // CLUT 表地址
+    0,                      // 图层索引
+    16);                    // 颜色数量
 
-// Wait for completion
+// 等待完成
 HAL_DMA2D_PollForTransfer(&hdma2d, 100);
 ```
 
-If a 256-color icon (100×100) is displayed on an 800×480 screen:
+若在 800×480 屏幕上显示 100×100 的 256 色图标：
 
-- Using RGB565 + `HAL_DMA2D_Start`: `100*100*2 = 20,000` bytes.
-- Using CLUT:
-  1. Load CLUT once (`256 * 4 = 1024` bytes).
-  2. Transfer indexed image (`100*100*1 = 10,000` bytes).
+- RGB565 + `HAL_DMA2D_Start`：`100*100*2 = 20,000` 字节。
+- CLUT 方案：
+  1. 先加载 CLUT（`256*4 = 1024` 字节）。
+  2. 再传索引图（`100*100*1 = 10,000` 字节）。
 
-So repeated transfers become significantly smaller with CLUT.
+因此在重复传输场景中，CLUT 方案带宽明显更小。
 
-## Display Acceleration
+## 显示加速
 
-After understanding LTDC and DMA2D, code changes are needed to improve performance with ARM2D.
+在理解 LTDC 与 DMA2D 后，需要结合 ARM2D 修改代码以提升性能。
 
-### Fix current implementation
+### 修正当前实现
 
-Current ARM2D configuration enabled 3FB, which does not match the actual requirement. First, switch to a proper single-buffer flow according to ARM2D docs.
+当前 ARM2D 启用了 3FB，不符合实际需求。先按 ARM2D 文档切换到单缓冲正确流程。
 
-Set:
+设置为：
 
 - `__ARM_2D_HAS_ASYNC__ = 0`
 - `__DISP0_CFG_PFB_BLOCK_WIDTH__ = 800`
-- `__DISP0_CFG_PFB_BLOCK_HEIGHT__ = 48` (1/10 screen height frame buffer)
+- `__DISP0_CFG_PFB_BLOCK_HEIGHT__ = 48`（1/10 屏高的缓存）
 - `__DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__ = 0`
 
-Then modify `Disp0_DrawBitmap()` so `OutputOffset` and `DstAddress` are always correct:
+并修改 `Disp0_DrawBitmap()`，确保每次 `OutputOffset` 与 `DstAddress` 计算正确：
 
 ```c
 void Disp0_DrawBitmap(int16_t x,
@@ -526,7 +526,7 @@ void Disp0_DrawBitmap(int16_t x,
                       int16_t height,
                       const uint8_t *bitmap)
 {
-  /* PFB mode: copy tile to frame buffer using DMA2D */
+  /* PFB 模式：使用 DMA2D 把 tile 复制到帧缓冲 */
   uint32_t output_offset = __DISP0_CFG_SCEEN_WIDTH__ - width;
   uint32_t dst = (uint32_t)(&frame_buf[y * __DISP0_CFG_SCEEN_WIDTH__ + x]);
 
@@ -562,20 +562,20 @@ void Disp0_DrawBitmap(int16_t x,
 }
 ```
 
-After these fixes, frame rate reached 91 FPS and LCD latency dropped to 1 ms, but CPU usage increased to 84.88%, so further optimization was required.
+修正后，帧率提升到 91 FPS，LCD Latency 降到 1ms；但 CPU 占用升到 84.88%，需要继续优化。
 
-### Async flushing
+### 异步刷新
 
-Enable `__DISP0_CFG_ENABLE_ASYNC_FLUSHING__`, and enable DMA2D interrupt.
+打开 `__DISP0_CFG_ENABLE_ASYNC_FLUSHING__`，并使能 DMA2D 中断。
 
-In this project, async flushing needs two notifications:
+本工程异步刷新需要实现两件事：
 
-1. LTDC reload interrupt notifies DMA2D that blanking window is open.
-2. DMA2D transfer-complete interrupt notifies ARM2D that transfer is finished.
+1. LTDC Reload 中断通知 DMA2D：当前可在消隐窗口写 GRAM。
+2. DMA2D 传输完成中断通知 ARM2D：本次发送完成，可继续渲染。
 
-After ARM2D renders a tile, `IMPL_PFB_ON_LOW_LV_RENDERING()` tries to send it to GRAM, but LTDC may still be in active scan. Therefore, it must wait until blanking before writing GRAM.
+ARM2D 渲染完一个 tile 后，`IMPL_PFB_ON_LOW_LV_RENDERING()` 会尝试发送到 GRAM；若还没到消隐窗口，就需要等待。
 
-Workflow like this：
+工作流程如下：
 
 ```Plaintext
 IMPL_PFB_ON_LOW_LV_RENDERING
@@ -583,59 +583,59 @@ IMPL_PFB_ON_LOW_LV_RENDERING
 -> __disp0_try_start_pending_flush
 ```
 
-In `dma2d.c`, `__disp_adapter0_request_async_flushing` and `__disp0_try_start_pending_flush` were implemented.
+在 `dma2d.c` 中实现了 `__disp_adapter0_request_async_flushing` 与 `__disp0_try_start_pending_flush`。
 
-- `__disp_adapter0_request_async_flushing`: record request + set pending + try start.
-- `__disp0_try_start_pending_flush`: called by both submit path and VBlank path. DMA2D starts only when all conditions are true: `RR window open + pending + DMA idle`.
+- `__disp_adapter0_request_async_flushing`：记录请求 + 置 pending + 尝试启动。
+- `__disp0_try_start_pending_flush`：提交请求和 VBlank 到来两边都会调用；只有满足 `RR window open + pending + DMA idle` 才启动 DMA2D。
 
-After DMA2D completes, IRQ flow is:
+DMA2D 完成后的链路：
 
 `DMA2D IRQ -> HAL -> __disp0_dma2d_xfer_cplt_cb / __disp0_dma2d_xfer_error_cb -> disp_adapter0_insert_async_flushing_complete_event_handler`
 
-This notifies Arm2D that one transfer is complete.
+最终由该回调通知 Arm2D 本轮发送已完成。
 
-`Disp0_OnVBlank()` in LTDC ISR unlocks `s_disp0_rr_window_open`.
+LTDC 中断中的 `Disp0_OnVBlank()` 负责释放 `s_disp0_rr_window_open` 这把锁。
 
-With async + 1FB testing:
+异步 + 1FB 测试结果：
 
-- FPS dropped to 66
-- LCD latency became ~70 ms
-- CPU usage dropped to 18.48%
+- FPS 降到 66
+- LCD Latency 约 70ms
+- CPU 占用降到 18.48%
 
-This frees significant CPU time and helps avoid tearing.
+这会释放大量 CPU 资源，并降低画面撕裂风险。
 
-#### Multiple small FBs vs one larger FB
+#### 多个小 FB vs 一个大 FB
 
-Based on current logic, multiple small FBs are likely less efficient than one larger FB. The bottleneck is LTDC full-frame transfer time; rendering a larger tile while LTDC is scanning can provide better benefit than frequent pointer switches across many small FBs.
+按当前逻辑推测，多个小 FB 的效率不如一个更大的 FB。瓶颈通常在 LTDC 一整屏传输时间；与其频繁切换多个小 FB，不如在扫描期间渲染更大的 tile。
 
-Measured data:
+测试数据：
 
 | config      | FPS | LCD Latency | CPU loading |
 | ----------- | --- | ----------- | ----------- |
 | 2 800x48 FB | 66  | ~70ms       | 18.48%      |
 | 1 800x96 FB | 76  | ~30ms       | 26.76%      |
 
-> ⚠️ After changing these configs, run a full rebuild. Performance may improve slightly after a clean rebuild.
+> ⚠️ 修改这些配置后建议全量重编译，clean build 后性能通常会略有提升。
 
-#### DMA2D transfer-time measurement
+#### DMA2D 传输时间测量
 
-DMA2D transfer starts during blanking. From previous calculation, with LTDC clock at 50 MHz, blanking time is 0.855 ms. We need to verify:
+目前 DMA2D 传输在消隐窗口内启动。按前面计算，LTDC 时钟 50MHz 时，消隐时间约 0.855ms。需要验证：
 
-`LTDC reload interrupt timestamp -> DMA2D transfer-complete interrupt timestamp < blanking time`
+`LTDC reload 中断时间戳 -> DMA2D 传输完成中断时间戳 < 消隐时间`
 
-By adding one timestamp in LTDC callback and one in DMA2D transfer-complete callback, the measured transfer time for 800x96 FB was about 0.14 ms.
+在 LTDC 回调与 DMA2D 完成回调分别打点后，800x96 FB 的传输时间约为 0.14ms。
 
-This does not include some overhead before the software timestamp point (for example, from interrupt assertion to the exact line `LTDCStart = get_system_ticks();`), so true end-to-end latency is slightly higher. Since the measured value is still far below blanking time, no deeper HAL-level instrumentation was done.
+这个值不包含中断触发到软件打点语句（如 `LTDCStart = get_system_ticks();`）之间的前置开销，因此真实端到端耗时会稍高。由于结果远小于消隐时间，暂未继续深入修改 HAL 做更精确测量。
 
-# Problems & Bugs
+# 问题与 Bug
 
-1. `.ARM.exidx` has a ±1 GB range limit. This affects code placement when mixing internal flash (`0x0800_8000`) and external flash (`0x9000_0000`).
+1. `.ARM.exidx` 有 ±1GB 距离限制，限制了内部 Flash（`0x0800_8000`）与外部 Flash（`0x9000_0000`）混放代码的链接。
 
    ```shell
    [build] ld.lld: error: <internal>:(.ARM.exidx+0x8): relocation R_ARM_PREL31 out of range: 1811987350 is not in [-1073741824, 1073741823]
    ```
 
-   **Workaround:** Discard unwind sections in linker script (not ideal, and requires caution):
+   **临时方案：** 在链接脚本中丢弃 unwind 段（并非理想方案，需要谨慎评估）：
 
    ```ld
    /DISCARD/ :
@@ -648,33 +648,33 @@ This does not include some overhead before the software timestamp point (for exa
    }
    ```
 
-2. Selecting DSP library in STM32CubeMX code generation does **not** copy either the prebuilt library (`arm_cortexM7l_math.a`) or DSP source files to the project.
+2. 在 STM32CubeMX 里勾选 DSP Library 后，代码生成并不会把预编译库（`arm_cortexM7l_math.a`）或 DSP 源文件复制到用户工程。
 
-   It was reproduced on both Windows and macOS (tested with STM32CubeMX 6.16.0 and 6.17.0).
+   该问题在 Windows 和 macOS 都出现过（测试版本 STM32CubeMX 6.16.0 / 6.17.0）。
 
-   **Solution:** Build CMSIS-DSP manually. Source is available on GitHub, or from STM32CubeMX installation folders.
+   **解决方案：** 手工构建 CMSIS-DSP。可直接用 GitHub 源码，或从 STM32CubeMX 安装目录提取。
 
    > https://github.com/ARM-software/CMSIS-DSP
 
-3. Sometimes external flash download fails, causing hardfault.
+3. 外部 Flash 下载有时失败，会导致 hardfault。
 
-   **Solution:** Use new SFL code.
+   **解决方案：** 使用新的 SFL 代码。
 
-4. In VSCode STM32Cube Build Analyzer (v1.1.0 / v1.2.0), ITCM section (`0x0000_0000`) display appears incorrect.
+4. VSCode 的 STM32Cube Build Analyzer（v1.1.0 / v1.2.0）对 ITCM（`0x0000_0000`）显示存在偏差。
 
-   The extension includes sections like `.ARM.attributes` and `.symtab` in usage, which should be excluded, so reported usage can be higher than actual. The `.map` file still reports the ITCM usage correctly.
+   插件把 `.ARM.attributes`、`.symtab` 等不应计入的段也算进占用，导致显示值偏大；`.map` 文件里的 ITCM 占用是正确的。
 
    <img src="assets/image-20260201233005767.png" alt="image-20260201233005767" style="zoom: 67%;" /><img src="assets/image-20260201233026332.png" alt="image-20260201233026332" style="zoom:67%;" />
 
-   **Workaround:** Wait for extension updates.
+   **临时方案：** 等待插件更新。
 
-5. LCD display corruption after running for a while.
+5. LCD 运行一段时间后出现花屏。
 
-   **Solution:** Configure LTDC-related GPIO output speed to **Very High**.
+   **解决方案：** LTDC 相关引脚输出速度必须配置为 **Very High**。
 
-6. After download, it may jump into `MemFault()`. It is suspected that SFL context cleanup is incomplete. 
+6. 下载完成后，程序可能进入 `MemFault()`。怀疑是 SFL 清理现场不完整导致。
 
-   **Solution:** Use new SFL code. And force an MCU reset after download by adding `preRunCommands` in `launch.json`:
+   **解决方案：** 使用新的 SFL 代码。且在下载后强制复位，在 `launch.json` 添加 `preRunCommands`：
 
    ```json
    "preRunCommands": [
@@ -684,18 +684,18 @@ This does not include some overhead before the software timestamp point (for exa
    ],
    ```
 
-7. Boot may occasionally get stuck during OSPI initialization.
+7. boot 有一定概率卡在 OSPI 初始化阶段。
 
-   **Solution:** Add OSPI de-initialization before OSPI initialization to ensure proper peripheral reset.
+   **解决方案：** 在 OSPI 初始化前先做一次反初始化，确保外设状态被正确复位。
 
-# TODOs
+# TODO
 
-- [x] External flash loader
-- [x] boot
-- [x] application
-  - [x] UART async ring buffer
-    - [x] TX uses software ring buffer (not ideal for very large data; may improve later if needed)
-    - [x] RX uses DMA circular mode
+- [x] 外部 Flash Loader
+- [x] Boot
+- [x] Application
+  - [x] UART 异步环形缓冲
+    - [x] 发送使用软件环形缓冲（大数据量场景表现一般，后续按需优化）
+    - [x] 接收使用 DMA 循环模式
   - [x] Button
   - [x] ARM2D
   - [x] Touch
