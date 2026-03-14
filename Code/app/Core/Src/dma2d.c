@@ -172,6 +172,7 @@ void DMA2D_Test(void)
 void DMA2D_fill_screen(void)
 {
 #if 1
+  /* Fill GRAM using CPU */
   uint32_t  i;
     volatile uint16_t *ptr_frame_buf;
 
@@ -180,7 +181,6 @@ void DMA2D_fill_screen(void)
         *ptr_frame_buf++ = 0x001F;
     }
 #else
-
 	DMA2D->CR	  &=	~(DMA2D_CR_START);				//	停止DMA2D
 	DMA2D->CR		=	DMA2D_R2M;							//	寄存器到SDRAM
 	DMA2D->OPFCCR	=	LTDC_PIXEL_FORMAT_RGB565;						//	设置颜色格式
@@ -209,18 +209,21 @@ void DMA2D_fill_screen(void)
 }
 
 
-int32_t GLCD_DrawBitmap(uint32_t x,
-                        uint32_t y,
-                        uint32_t width,
-                        uint32_t height,
-                        const uint8_t *bitmap)
+
+__OVERRIDE_WEAK
+void Disp0_DrawBitmap(int16_t x,
+                      int16_t y,
+                      int16_t width,
+                      int16_t height,
+                      const uint8_t *bitmap)
 {
-
+  /* In 3FB mode, ARM2D writes directly to frame buffer - this should not be called */
+#if __DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__
+  (void)x; (void)y; (void)width; (void)height; (void)bitmap;
+#else
+  /* PFB mode: copy tile to frame buffer using DMA2D */
   uint32_t output_offset = __DISP0_CFG_SCEEN_WIDTH__ - width; // 计算行偏移，单位为像素
-   uint32_t dst;
-
-  // dst = (uint32_t)FRAME_BUFFER_ADDR + ((y * __DISP0_CFG_SCEEN_WIDTH__ + x));
-  // dst = &frame_buf[y * __DISP0_CFG_SCEEN_WIDTH__ + x];
+  //uint32_t dst = &frame_buf[y * __DISP0_CFG_SCEEN_WIDTH__ + x];
 
   hdma2d.Init.Mode = DMA2D_M2M;  // 内存到内存模式
   hdma2d.Init.ColorMode = DMA2D_OUTPUT_RGB565;
@@ -232,10 +235,10 @@ int32_t GLCD_DrawBitmap(uint32_t x,
   HAL_DMA2D_Init(&hdma2d);
 
   if (HAL_DMA2D_Start(&hdma2d,
-                        (uint32_t)(bitmap),
-                        (uint32_t)(&frame_buf[y * __DISP0_CFG_SCEEN_WIDTH__ + x]), // 计算目标地址
-                        width,
-                        height) != HAL_OK)
+                      (uint32_t)(bitmap),
+                      (uint32_t)(&frame_buf[y * __DISP0_CFG_SCEEN_WIDTH__ + x]), // 计算目标地址
+                      width,
+                      height) != HAL_OK)
   {
       dma2d_printf("Error, dma2d start failed\r\n");
   }
@@ -245,30 +248,14 @@ int32_t GLCD_DrawBitmap(uint32_t x,
     dma2d_printf("Error, transfer failed\r\n");
   }
 
-#if defined (SCB_CleanDCache_by_Addr)
-    {
-        uint32_t len = (uint32_t)width * (uint32_t)height * 2U;
-        SCB_CleanDCache_by_Addr((uint32_t *)dst, len);
-    }
+  #if defined (SCB_CleanDCache_by_Addr)
+  {
+    uint32_t len = (uint32_t)width * (uint32_t)height * 2U;
+    SCB_CleanDCache_by_Addr((uint32_t *)dst, len);
+  }
+  #endif
+
 #endif
-
-    return 0;
-}
-
-__OVERRIDE_WEAK
-void Disp0_DrawBitmap(int16_t x,
-                      int16_t y,
-                      int16_t width,
-                      int16_t height,
-                      const uint8_t *bitmap)
-{
-    /* In 3FB mode, ARM2D writes directly to frame buffer - this should not be called */
-    #if __DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__
-        (void)x; (void)y; (void)width; (void)height; (void)bitmap;
-    #else
-        /* PFB mode: copy tile to frame buffer using DMA2D */
-        GLCD_DrawBitmap(x, y, width, height, bitmap);
-    #endif
 }
 /* USER CODE END 1 */
 

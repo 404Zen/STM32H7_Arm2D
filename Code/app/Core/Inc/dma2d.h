@@ -49,7 +49,6 @@ void MX_DMA2D_Init(void);
 /* USER CODE BEGIN Prototypes */
 // void DMA2D_Test(void);
 void DMA2D_fill_screen(void);
-int32_t GLCD_DrawBitmap (uint32_t x, uint32_t y, uint32_t width, uint32_t height, const uint8_t *bitmap);
 void Disp0_DrawBitmap(int16_t x, int16_t y, int16_t width, int16_t height, const uint8_t *bitmap);
 /* USER CODE END Prototypes */
 

@@ -192,7 +192,6 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   start_tick = HAL_GetTick();
-  
   while (1)
   {
     /* USER CODE END WHILE */

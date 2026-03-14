@@ -534,6 +534,64 @@ HAL_DMA2D_PollForTransfer(&hdma2d, 100);
 
 当前的 ARM2D 是启用了 3FB 的，这并不符合实际要求，先根据 ARM2D 文档实现单缓冲区的正确显示。
 
+将 `__ARM_2D_HAS_ASYNC__` 设置为 `1`；
+
+`__DISP0_CFG_PFB_BLOCK_WIDTH__` 设置为我们的屏幕宽度 `800`；
+
+`__DISP0_CFG_PFB_BLOCK_HEIGHT__`设置为 1/10 屏幕高度 `48`，即 ARM2D 的 PFB 为一整屏的 1/10；
+
+`__DISP0_CFG_ENABLE_3FB_HELPER_SERVICE__` 设置为 `0`，关闭 3FB。
+
+修改 `Disp0_DrawBitmap()` ， 确保每次可以正确计算 DMA2D 的 `OutputOffset` 与 `DstAddress`；
+
+```c
+void Disp0_DrawBitmap(int16_t x,
+                      int16_t y,
+                      int16_t width,
+                      int16_t height,
+                      const uint8_t *bitmap)
+{
+
+  /* PFB mode: copy tile to frame buffer using DMA2D */
+  uint32_t output_offset = __DISP0_CFG_SCEEN_WIDTH__ - width; // 计算行偏移，单位为像素
+  //uint32_t dst = &frame_buf[y * __DISP0_CFG_SCEEN_WIDTH__ + x];
+
+  hdma2d.Init.Mode = DMA2D_M2M;  // 内存到内存模式
+  hdma2d.Init.ColorMode = DMA2D_OUTPUT_RGB565;
+  hdma2d.Init.OutputOffset = output_offset;  // 输出行偏移设置为屏幕宽度减去矩形宽度
+  hdma2d.Init.LineOffsetMode = DMA2D_LOM_PIXELS; // 行偏移以像素为单位
+  hdma2d.Init.AlphaInverted = DMA2D_REGULAR_ALPHA;  // Alpha不反转
+  hdma2d.Init.RedBlueSwap = DMA2D_RB_REGULAR;       // 不交换红蓝
+  hdma2d.Init.BytesSwap = DMA2D_BYTES_REGULAR;      // 不交换字节
+  HAL_DMA2D_Init(&hdma2d);
+
+  if (HAL_DMA2D_Start(&hdma2d,
+                      (uint32_t)(bitmap),
+                      (uint32_t)(&frame_buf[y * __DISP0_CFG_SCEEN_WIDTH__ + x]), // 计算目标地址
+                      width,
+                      height) != HAL_OK)
+  {
+      dma2d_printf("Error, dma2d start failed\r\n");
+  }
+
+  if(HAL_DMA2D_PollForTransfer(&hdma2d, HAL_MAX_DELAY) != HAL_OK)
+  {
+    dma2d_printf("Error, transfer failed\r\n");
+  }
+
+  #if defined (SCB_CleanDCache_by_Addr)
+  {
+    uint32_t len = (uint32_t)width * (uint32_t)height * 2U;
+    SCB_CleanDCache_by_Addr((uint32_t *)dst, len);
+  }
+  #endif
+}
+```
+
+经过上面的修正之后 ，现在的帧率来到了 78 FPS， LCD Latency 则变为 1ms；但是 CPU 占用率飙升至 87.40%；接下来继续优化。
+
+
+
 
 
 
@@ -595,7 +653,7 @@ HAL_DMA2D_PollForTransfer(&hdma2d, 100);
 
 3. Sometimes, external Flash files fail to download, which will cause a hardfault; the reason is currently unclear. Based on this, on launch.json, i moved the app before the boot, which might help.
 
-   **Workaround : ** Nothing can do now.
+   **Solution : ** Using new SFL code.
 
 4. In the VSCode STM32Cube Build Analyzer (v1.1.0) extension, there appear to be display errors regarding the **ITCM section** (address 0x0000_0000). The extension includes sections such as `.ARM.attributes` and `.symtab` in its usage calculation **which should be excluded**, leading to a reported usage higher than the actual amount. However, the ITCM section usage is **correctly reflected** in the `.map` file.
 
